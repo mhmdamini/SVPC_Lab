@@ -1,0 +1,13 @@
+name = "CutsApp"
+uuid = "24a8e648-785b-451b-a431-8eed4a1b14c6"
+version = "0.1.0"
+
+[deps]
+CuttingPlane = "5bf8a77d-6c2f-4ac2-83d8-a70f0cf160ae"
+HTTP = "cd3eb016-35fb-5094-929b-558a96fad6f3"
+JSON3 = "0f8b85d8-7281-11e9-16c2-39a750bddbf1"
+JuMP = "4076af6c-e467-56ae-b986-b466b2749572"
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+
+[compat]
+LinearAlgebra = "1.11.0"

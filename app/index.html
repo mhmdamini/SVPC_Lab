@@ -1,0 +1,1808 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Disjunctive Cuts Lab</title>
+<script src="/vendor/plotly.min.js" charset="utf-8"></script>
+<style>
+  :root {
+    --bg: #f6f7f9; --panel: #ffffff; --ink: #1d2330; --muted: #5d6677; --line: #e1e4ea;
+    --accent: #2f6fde; --accent-ink: #ffffff; --soft: #eef3fc;
+    --good: #1f9d55; --bad: #d64545; --warn: #b7791f;
+    --cut-gfc: #c2398a; --cut-sic: #0f9a9a; --cut-gmi: #e07b00; --cut-vpc: #2f6fde; --cut-vpc_mono: #8b4fd6;
+    --lp: #2f6fde; --hull: #1f9d55; --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #12151b; --panel: #1a1e26; --ink: #e6e9ef; --muted: #9aa3b2; --line: #2a303b;
+      --accent: #5b8ff0; --accent-ink: #0d1117; --soft: #1e2736;
+      --good: #3fbf7f; --bad: #f06a6a; --warn: #e0a940;
+      --cut-gfc: #e46fb3; --cut-sic: #2cc4c4; --cut-gmi: #f5a03a; --cut-vpc: #5b8ff0; --cut-vpc_mono: #b07ff0; --lp: #5b8ff0; --hull: #3fbf7f;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+         font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+  header { padding: 18px 24px 6px; display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; flex-wrap: wrap; }
+  .viewtabs { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--panel); }
+  .viewtabs button { border: 0; background: transparent; padding: 7px 16px; cursor: pointer; color: var(--muted); font: inherit; }
+  .viewtabs button.on { background: var(--soft); color: var(--accent); font-weight: 600; }
+  #cuts-table .note { white-space: pre-line; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .grid2 > .hidden { display: none; }
+  input[type=number] { width: 100%; padding: 7px 8px; border: 1px solid var(--line); border-radius: 7px; background: var(--panel); font: inherit; color: inherit; }
+  /* Guide */
+  .guide { display: grid; grid-template-columns: 230px minmax(0, 1fr); gap: 16px; padding: 12px 24px 40px; }
+  @media (max-width: 900px) { .guide { grid-template-columns: 1fr; padding: 12px 16px 24px; } .toc { position: static !important; } }
+  .toc { position: sticky; top: 12px; align-self: start; }
+  .toc a { display: block; padding: 4px 8px; border-radius: 6px; color: var(--ink); text-decoration: none; font-size: 13.5px; }
+  .toc a:hover { background: var(--soft); color: var(--accent); }
+  .doc { max-width: 920px; }
+  .doc section, .doc .method { scroll-margin-top: 12px; }
+  .doc h2 { font-size: 18px; text-transform: none; letter-spacing: -0.01em; color: var(--ink); margin: 0 0 8px; }
+  .doc h3 { font-size: 14.5px; margin: 16px 0 6px; }
+  .doc p, .doc li { line-height: 1.6; }
+  .doc ol, .doc ul { padding-left: 22px; }
+  .doc code { font-family: var(--mono); font-size: 12.5px; background: var(--bg); padding: 1px 5px; border-radius: 4px; }
+  .doc pre code { background: none; padding: 0; }
+  .doc table { margin: 6px 0 4px; }
+  .formula { font-family: var(--mono); font-size: 13px; background: var(--bg); border-left: 3px solid var(--accent);
+             padding: 8px 12px; border-radius: 4px; margin: 8px 0; white-space: pre-wrap; }
+  .method { border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; margin-top: 12px; }
+  .method h3 { margin-top: 0; display: flex; align-items: center; gap: 8px; }
+  .kv { display: grid; grid-template-columns: 130px minmax(0, 1fr); gap: 4px 12px; margin: 6px 0; }
+  .kv dt { color: var(--muted); font-size: 13px; }
+  .kv dd { margin: 0; }
+  @media (max-width: 600px) { .kv { grid-template-columns: 1fr; } }
+  header h1 { margin: 0; font-size: 20px; letter-spacing: -0.01em; }
+  header p { margin: 2px 0 0; color: var(--muted); }
+  main { display: grid; grid-template-columns: 380px minmax(0, 1fr); gap: 16px; padding: 12px 24px 32px; }
+  @media (max-width: 900px) { main { grid-template-columns: 1fr; padding: 12px 16px 24px; } header { padding: 16px 16px 4px; } }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px; }
+  .stack > * + * { margin-top: 14px; }
+  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 10px; }
+  label.field { display: block; font-weight: 600; margin-bottom: 6px; }
+  select, textarea, button, input[type=file] { font: inherit; color: inherit; }
+  select { width: 100%; padding: 7px 8px; border: 1px solid var(--line); border-radius: 7px; background: var(--panel); }
+  textarea { width: 100%; min-height: 250px; resize: vertical; padding: 10px; border: 1px solid var(--line);
+             border-radius: 7px; background: var(--bg); font: 12.5px/1.5 var(--mono); tab-size: 2; }
+  .row { display: flex; gap: 8px; align-items: center; }
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 7px; overflow: hidden; }
+  .seg button { border: 0; background: transparent; padding: 5px 12px; cursor: pointer; color: var(--muted); }
+  .seg button.on { background: var(--soft); color: var(--accent); font-weight: 600; }
+  .ghost { border: 1px solid var(--line); background: transparent; border-radius: 7px; padding: 5px 10px; cursor: pointer; }
+  .checks label { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 7px; cursor: pointer; }
+  .checks label:hover { background: var(--soft); }
+  .swatch { width: 10px; height: 10px; border-radius: 3px; display: inline-block; flex: none; }
+  .primary { width: 100%; padding: 10px; border: 0; border-radius: 8px; background: var(--accent); color: var(--accent-ink);
+             font-weight: 600; cursor: pointer; }
+  .primary:disabled { opacity: .6; cursor: progress; }
+  details summary { cursor: pointer; color: var(--muted); }
+  pre { margin: 8px 0 0; padding: 10px; background: var(--bg); border-radius: 7px; overflow-x: auto; font: 12px/1.5 var(--mono); }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+  .card { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; }
+  .card .k { color: var(--muted); font-size: 12px; }
+  .card .v { font-size: 20px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+  th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; font-size: 12px; }
+  td.num, th.num { text-align: right; }
+  .scroll { overflow-x: auto; }
+  .cutexpr { font-family: var(--mono); font-size: 12.5px; white-space: nowrap; }
+  .note { color: var(--muted); font-size: 12px; margin-top: 2px; }
+  .badge { display: inline-block; padding: 1px 7px; border-radius: 999px; font-size: 11.5px; font-weight: 600; white-space: nowrap; }
+  .badge.ok { background: color-mix(in srgb, var(--good) 15%, transparent); color: var(--good); }
+  .badge.bad { background: color-mix(in srgb, var(--bad) 15%, transparent); color: var(--bad); }
+  .badge.na { background: var(--soft); color: var(--muted); }
+  .gapbar { position: relative; height: 6px; background: var(--line); border-radius: 3px; margin-top: 4px; min-width: 80px; }
+  .gapbar span { position: absolute; inset: 0 auto 0 0; border-radius: 3px; }
+  .error { border-color: var(--bad); color: var(--bad); }
+  .empty { color: var(--muted); text-align: center; padding: 48px 16px; }
+  #plot { width: 100%; height: 600px; }
+  #cuts-table td:first-child { min-width: 150px; }
+  #bounds { width: 100%; height: 240px; }
+  .tableau td.hl { background: var(--soft); }
+  .tableau { font-size: 12.5px; }
+  .tableau th, .tableau td { padding: 4px 8px; white-space: nowrap; }
+  .tableau td.enter, .tableau th.enter { background: color-mix(in srgb, var(--accent) 12%, transparent); }
+  .tableau tr.leave td { background: color-mix(in srgb, var(--warn) 14%, transparent); }
+  .tableau td.pivot { outline: 2px solid var(--accent); outline-offset: -2px; font-weight: 700; }
+  .tableau tr.zrow td { border-top: 2px solid var(--line); font-weight: 600; }
+  .tableau td.sep, .tableau th.sep { border-left: 2px solid var(--line); }
+  .tableau td.muted { color: var(--muted); }
+  h3 { font-size: 13px; margin: 18px 0 6px; }
+  .stepper { gap: 8px; margin: 6px 0 8px; flex-wrap: wrap; }
+  .stepper select { width: auto; }
+  .step-note { margin: 4px 0 10px; }
+  .phase { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 11.5px; font-weight: 600;
+           background: var(--soft); color: var(--accent); margin-right: 6px; }
+  ul.checks { list-style: none; padding: 0; margin: 0; }
+  ul.checks li { padding: 4px 0; display: flex; gap: 8px; align-items: baseline; }
+  ul.checks li .mark { font-weight: 700; width: 1em; flex: none; }
+  ul.checks li.ok .mark { color: var(--good); }
+  ul.checks li.fail .mark { color: var(--bad); }
+  .legend-hint { color: var(--muted); font-size: 12px; }
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>Disjunctive Cuts Lab</h1>
+    <p>Enter a mixed-integer program, choose cut families, and see how each cut tightens the LP relaxation.</p>
+  </div>
+  <nav class="viewtabs" role="tablist" aria-label="View">
+    <button type="button" data-view="lab" class="on">Lab</button>
+    <button type="button" data-view="solve">Solve</button>
+    <button type="button" data-view="guide">Guide</button>
+  </nav>
+</header>
+
+<main id="lab-view">
+  <!-- ======================= Input panel ======================= -->
+  <section class="panel stack" aria-label="Problem input">
+    <div>
+      <label class="field" for="example">Example</label>
+      <select id="example"></select>
+    </div>
+
+    <div>
+      <div class="row" style="justify-content: space-between; margin-bottom: 6px;">
+        <label class="field" for="problem" style="margin: 0;">Problem</label>
+        <div class="row">
+          <div class="seg" role="group" aria-label="Format" id="format-seg">
+            <button type="button" data-format="lp" class="on">LP</button>
+            <button type="button" data-format="mps">MPS</button>
+          </div>
+          <button type="button" class="ghost" id="upload-btn">Upload…</button>
+          <input type="file" id="upload" accept=".lp,.mps,.txt" class="hidden">
+        </div>
+      </div>
+      <textarea id="problem" spellcheck="false"></textarea>
+      <details>
+        <summary>LP format cheat sheet</summary>
+<pre>Maximize            (or Minimize)
+ obj: 3 x + 2 y
+Subject To
+ c1: x + y &lt;= 4.5
+ c2: x - y &gt;= -1
+Bounds              (default: 0 &lt;= var)
+ x &lt;= 3
+General             (integer variables)
+ x y
+End</pre>
+      </details>
+    </div>
+
+    <div>
+      <label class="field" for="split">Split variable</label>
+      <select id="split"><option value="">Auto: first fractional variable</option></select>
+      <div class="note">Fractional integer variables appear here after the first run.</div>
+    </div>
+
+    <div>
+      <label class="field">Cuts to generate</label>
+      <div class="checks">
+        <label><input type="checkbox" name="cut" value="gfc" checked><span class="swatch" style="background: var(--cut-gfc)"></span>Gomory fractional cut (GFC, pure integer)</label>
+        <label><input type="checkbox" name="cut" value="sic" checked><span class="swatch" style="background: var(--cut-sic)"></span>Standard intersection cut (SIC)</label>
+        <label><input type="checkbox" name="cut" value="gmi" checked><span class="swatch" style="background: var(--cut-gmi)"></span>Gomory mixed-integer (GMI)</label>
+        <label><input type="checkbox" name="cut" value="vpc" checked><span class="swatch" style="background: var(--cut-vpc)"></span>V-polyhedral cut (VPC)</label>
+        <label><input type="checkbox" name="cut" value="vpc_mono"><span class="swatch" style="background: var(--cut-vpc_mono)"></span>VPC + monoidal strengthening</label>
+      </div>
+    </div>
+
+    <div>
+      <label class="field" for="norm">PRLP normalization (VPC)</label>
+      <select id="norm">
+        <option value="auto">Auto: β = 1, fall back to ‖α‖₁ ≤ 1</option>
+        <option value="beta">β = 1</option>
+        <option value="l1">‖α‖₁ ≤ 1</option>
+      </select>
+    </div>
+
+    <button class="primary" id="run">Generate cuts</button>
+  </section>
+
+  <!-- ======================= Results ======================= -->
+  <section class="stack" aria-label="Results">
+    <div id="error" class="panel error hidden"></div>
+    <div id="placeholder" class="panel empty">Pick an example or enter a problem, then press <b>Generate cuts</b>.</div>
+
+    <div id="results" class="stack hidden">
+      <div class="panel">
+        <h2>Summary</h2>
+        <div class="cards" id="cards"></div>
+      </div>
+
+      <div class="panel">
+        <h2>Cuts</h2>
+        <div class="scroll"><table id="cuts-table"></table></div>
+      </div>
+
+      <div class="panel" id="plot-panel">
+        <div class="row" style="justify-content: space-between;">
+          <h2 style="margin: 0;">Feasible region</h2>
+          <span class="legend-hint">Click legend entries to show or hide layers</span>
+        </div>
+        <div id="plot"></div>
+        <div id="plot-empty" class="empty hidden">The region plot is available for problems with 2 or 3 variables.</div>
+      </div>
+
+      <div class="panel">
+        <h2>Bounds</h2>
+        <div id="bounds"></div>
+      </div>
+
+      <div class="panel">
+        <h2>Solutions</h2>
+        <div class="scroll"><table id="sol-table"></table></div>
+      </div>
+
+      <div class="panel" id="simplex-panel">
+        <div class="row" style="justify-content: space-between; flex-wrap: wrap; gap: 8px;">
+          <h2 style="margin: 0;">Simplex · LP relaxation in standard form</h2>
+          <div class="row">
+            <div class="seg" role="tablist" aria-label="Simplex view" id="simplex-tabs">
+              <button type="button" data-tab="iter" class="on">Iterations</button>
+              <button type="button" data-tab="analysis">Analysis</button>
+            </div>
+            <label class="note row" style="gap: 4px; margin: 0;"><input type="checkbox" id="fractions"> Fractions</label>
+          </div>
+        </div>
+        <p class="note" id="simplex-note"></p>
+
+        <div id="simplex-iter">
+          <div class="row stepper">
+            <button type="button" class="ghost" id="step-prev">‹ Previous</button>
+            <select id="step-select" aria-label="Simplex step"></select>
+            <button type="button" class="ghost" id="step-next">Next ›</button>
+          </div>
+          <div class="step-note" id="step-note"></div>
+          <div class="scroll"><table class="tableau" id="step-table"></table></div>
+          <p class="legend-hint">Shaded column: entering variable · shaded row: leaving variable · boxed: pivot element.
+            Last column: ratio test (rhs ÷ entering-column entry, positive entries only).</p>
+        </div>
+
+        <div id="simplex-analysis" class="hidden">
+          <h3>Checks</h3>
+          <ul class="checks" id="simplex-checks"></ul>
+          <h3>Optimal tableau (from the solver's basis)</h3>
+          <div class="scroll"><table class="tableau" id="opt-table"></table></div>
+          <h3>Variables</h3>
+          <div class="scroll"><table id="var-table"></table></div>
+          <h3>Constraints</h3>
+          <div class="scroll"><table id="con-table"></table></div>
+          <p class="note" id="degeneracy"></p>
+        </div>
+      </div>
+
+      <div class="panel">
+        <details>
+          <summary><b>Parsed model</b></summary>
+          <pre id="model-text"></pre>
+        </details>
+      </div>
+    </div>
+  </section>
+</main>
+
+<!-- ======================= Solve view ======================= -->
+<main id="solve-view" class="hidden">
+  <section class="panel stack" aria-label="Solve options">
+    <div>
+      <div class="row" style="justify-content: space-between;">
+        <label class="field" style="margin: 0;">Problem</label>
+        <a href="#" class="note" data-goto-lab>Edit in the Lab tab →</a>
+      </div>
+      <pre id="solve-problem" style="max-height: 180px; overflow: auto;"></pre>
+    </div>
+
+    <div>
+      <label class="field" for="algo">Algorithm</label>
+      <select id="algo">
+        <option value="cp_one">Cutting planes · one cut family</option>
+        <option value="cp_many">Cutting planes · several families together</option>
+        <option value="bb">Branch and bound</option>
+        <option value="bc">Branch and cut</option>
+      </select>
+      <div class="note" id="algo-help"></div>
+    </div>
+
+    <div id="opt-family-one">
+      <label class="field" for="family-one">Cut family</label>
+      <select id="family-one">
+        <option value="gfc">Gomory fractional (GFC, pure integer)</option>
+        <option value="sic">Standard intersection (SIC)</option>
+        <option value="gmi" selected>Gomory mixed-integer (GMI)</option>
+        <option value="vpc">V-polyhedral (VPC)</option>
+        <option value="vpc_mono">VPC + monoidal strengthening</option>
+      </select>
+    </div>
+
+    <div id="opt-family-many" class="hidden">
+      <label class="field">Cut families</label>
+      <div class="checks">
+        <label><input type="checkbox" name="scut" value="gfc"><span class="swatch" style="background: var(--cut-gfc)"></span>GFC (pure integer)</label>
+        <label><input type="checkbox" name="scut" value="sic"><span class="swatch" style="background: var(--cut-sic)"></span>SIC</label>
+        <label><input type="checkbox" name="scut" value="gmi" checked><span class="swatch" style="background: var(--cut-gmi)"></span>GMI</label>
+        <label><input type="checkbox" name="scut" value="vpc" checked><span class="swatch" style="background: var(--cut-vpc)"></span>VPC</label>
+        <label><input type="checkbox" name="scut" value="vpc_mono"><span class="swatch" style="background: var(--cut-vpc_mono)"></span>VPC + monoidal</label>
+      </div>
+    </div>
+
+    <div id="opt-cp" class="grid2">
+      <div>
+        <label class="field" for="max-rounds">Max rounds</label>
+        <input type="number" id="max-rounds" min="1" max="200" value="20">
+      </div>
+      <div>
+        <label class="field" for="split-rule">Cut on</label>
+        <select id="split-rule">
+          <option value="first">first fractional variable</option>
+          <option value="most_fractional">most fractional variable</option>
+          <option value="all" selected>every fractional variable</option>
+        </select>
+      </div>
+    </div>
+
+    <div id="opt-bb" class="grid2 hidden">
+      <div>
+        <label class="field" for="node-sel">Node selection</label>
+        <select id="node-sel">
+          <option value="best_bound">best bound</option>
+          <option value="depth_first">depth first</option>
+          <option value="breadth_first">breadth first</option>
+        </select>
+      </div>
+      <div>
+        <label class="field" for="branch-rule">Branching variable</label>
+        <select id="branch-rule">
+          <option value="most_fractional">most fractional</option>
+          <option value="first_fractional">first fractional</option>
+        </select>
+      </div>
+      <div>
+        <label class="field" for="max-nodes">Max nodes</label>
+        <input type="number" id="max-nodes" min="1" max="5000" value="500">
+      </div>
+    </div>
+
+    <div id="opt-bc" class="grid2 hidden">
+      <div>
+        <label class="field" for="root-rounds">Cut rounds at the root</label>
+        <input type="number" id="root-rounds" min="0" max="200" value="3">
+      </div>
+      <div>
+        <label class="field" for="node-rounds">Cut rounds at every node</label>
+        <input type="number" id="node-rounds" min="0" max="20" value="0">
+      </div>
+    </div>
+
+    <div id="opt-norm">
+      <label class="field" for="solve-norm">PRLP normalization (VPC)</label>
+      <select id="solve-norm">
+        <option value="auto">Auto: β = 1, fall back to ‖α‖₁ ≤ 1</option>
+        <option value="beta">β = 1</option>
+        <option value="l1">‖α‖₁ ≤ 1</option>
+      </select>
+    </div>
+
+    <button class="primary" id="solve-run">Solve</button>
+  </section>
+
+  <section class="stack" aria-label="Solve results">
+    <div id="solve-error" class="panel error hidden"></div>
+    <div id="solve-placeholder" class="panel empty">Choose an algorithm and press <b>Solve</b>.
+      The problem is the one currently in the Lab tab.</div>
+
+    <div id="solve-results" class="stack hidden">
+      <div class="panel">
+        <h2>Summary</h2>
+        <div class="cards" id="solve-cards"></div>
+        <p class="note" id="solve-status-note"></p>
+      </div>
+
+      <div class="panel">
+        <h2 id="conv-title">Convergence</h2>
+        <div id="conv-plot" style="width: 100%; height: 300px;"></div>
+      </div>
+
+      <div class="panel" id="replay-panel">
+        <div class="row" style="justify-content: space-between; flex-wrap: wrap; gap: 8px;">
+          <h2 style="margin: 0;" id="replay-title">Feasible region</h2>
+          <div class="row" id="replay-controls">
+            <button type="button" class="ghost" id="replay-prev">‹</button>
+            <input type="range" id="replay-round" min="0" max="0" value="0" style="width: 180px;">
+            <button type="button" class="ghost" id="replay-next">›</button>
+            <span class="note" id="replay-label"></span>
+          </div>
+        </div>
+        <div id="solve-plot" style="width: 100%; height: 560px;"></div>
+        <div id="solve-plot-empty" class="empty hidden"></div>
+      </div>
+
+      <div class="panel" id="tree-panel">
+        <div class="row" style="justify-content: space-between; flex-wrap: wrap; gap: 8px;">
+          <h2 style="margin: 0;">Branch-and-bound tree</h2>
+          <button type="button" class="ghost" id="compare-run" title="Run branch and bound and branch and cut on this problem and show both trees">Compare B&amp;B and B&amp;C</button>
+        </div>
+        <p class="legend-hint">Each node is an LP; under it, its LP bound (and ✂ the cuts added there). Click a node for details. Colour = how the node ended; hollow = created, not yet solved.</p>
+        <div class="row" id="tree-replay" style="flex-wrap: wrap; gap: 8px;">
+          <button type="button" class="ghost" id="tree-play" title="Play the search step by step">▶ Play</button>
+          <button type="button" class="ghost" id="tree-prev">‹</button>
+          <input type="range" id="tree-step" min="0" max="0" value="0" style="width: 220px;" aria-label="Nodes solved">
+          <button type="button" class="ghost" id="tree-next">›</button>
+          <span class="note" id="tree-step-label"></span>
+        </div>
+        <div id="tree-plot" style="width: 100%; height: 460px;"></div>
+        <div id="node-detail" class="note"></div>
+      </div>
+
+      <div class="panel hidden" id="compare-panel">
+        <h2>Branch and bound vs branch and cut</h2>
+        <p class="legend-hint" id="compare-note"></p>
+        <div class="scroll"><table id="cmp-table"></table></div>
+        <div class="grid2" id="compare-grid">
+          <div><h3 class="cmp-title">Branch and bound</h3><div id="cmp-tree-bb" style="width: 100%; height: 380px;"></div></div>
+          <div><h3 class="cmp-title">Branch and cut</h3><div id="cmp-tree-bc" style="width: 100%; height: 380px;"></div></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2 id="steps-title">Rounds</h2>
+        <div class="scroll"><table id="steps-table"></table></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<!-- ======================= Guide ======================= -->
+<div id="guide-view" class="guide hidden">
+  <nav class="toc panel" aria-label="Guide contents">
+    <a href="#g-start">1 · Getting started</a>
+    <a href="#g-problem">2 · Writing a problem</a>
+    <a href="#g-pipeline">3 · What happens when you click Generate</a>
+    <a href="#g-simplex">4 · The simplex panel</a>
+    <a href="#g-cuts">5 · Cut families</a>
+    <a href="#g-gfc">&nbsp;&nbsp;5.1 Gomory fractional (GFC)</a>
+    <a href="#g-sic">&nbsp;&nbsp;5.2 Standard intersection (SIC)</a>
+    <a href="#g-gmi">&nbsp;&nbsp;5.3 Gomory mixed-integer (GMI)</a>
+    <a href="#g-vpc">&nbsp;&nbsp;5.4 V-polyhedral (VPC)</a>
+    <a href="#g-mono">&nbsp;&nbsp;5.5 VPC + monoidal</a>
+    <a href="#g-compare">&nbsp;&nbsp;5.6 Comparing them</a>
+    <a href="#g-results">6 · Reading the results</a>
+    <a href="#g-solve">7 · Solve tab: iterative methods</a>
+    <a href="#g-julia">8 · Using the Julia package</a>
+    <a href="#g-api">9 · Function reference</a>
+    <a href="#g-run">10 · Running the app</a>
+    <a href="#g-glossary">11 · Glossary</a>
+  </nav>
+
+  <article class="doc stack">
+
+    <section id="g-start" class="panel">
+      <h2>1 · Getting started</h2>
+      <ol>
+        <li><b>Pick a problem.</b> Choose a built-in example from <i>Example</i>, type your own in the
+          <i>Problem</i> box (LP format, see §2), or click <i>Upload…</i> for an <code>.lp</code> / <code>.mps</code> file.</li>
+        <li><b>Choose the split variable</b> (optional). <i>Auto</i> uses the first integer variable that is fractional
+          in the LP optimum. After the first run, every fractional variable is listed.</li>
+        <li><b>Tick the cut families</b> to compare (§5). You can select several at once.</li>
+        <li><b>Click <i>Generate cuts</i>.</b> The results appear on the right: summary, cuts table, plot (2 or 3
+          variables), bounds chart, solutions, and the simplex panel.</li>
+        <li><b>Solve completely.</b> The <i>Solve</i> tab runs iterative cutting planes, branch and bound, or branch and
+          cut on the same problem (§7).</li>
+        <li><b>Explore.</b> Click legend entries to show or hide plot layers, step through the simplex iterations,
+          switch on <i>Fractions</i> for exact values, or open the <i>Analysis</i> tab.</li>
+      </ol>
+      <p><a href="#" data-goto-lab>Go to the lab →</a></p>
+    </section>
+
+    <section id="g-problem" class="panel">
+      <h2>2 · Writing a problem</h2>
+      <p>Problems use the standard <b>CPLEX LP format</b>; <b>MPS</b> is accepted too (switch the format toggle,
+        or upload a <code>.mps</code> file).</p>
+      <pre><code>Maximize                      (or Minimize)
+ obj: 5 x + 4 y
+Subject To
+ labor:    6 x + 4 y &lt;= 24.5    (&lt;=, &gt;= and = are allowed)
+ material: x + 2 y &lt;= 6.5
+Bounds                        (optional; default 0 &lt;= var &lt; +inf)
+ x &lt;= 3
+General                       (integer variables)
+ x y
+End</code></pre>
+      <h3>Rules</h3>
+      <ul>
+        <li>Every variable must have a lower bound ≥ 0. The cut generators work in standard form, x ≥ 0.</li>
+        <li>At least one variable must be integer: list it under <code>General</code>, or under <code>Binary</code> for
+          0/1 variables.</li>
+        <li>GFC also needs <b>every</b> variable to be integer (§5.1). The other cuts work for mixed-integer problems.</li>
+        <li>The feasible-region plot is drawn only for problems with 2 or 3 variables. Everything else works for any size,
+          and the simplex iterations are shown for up to 40 rows.</li>
+      </ul>
+    </section>
+
+    <section id="g-pipeline" class="panel">
+      <h2>3 · What happens when you click Generate</h2>
+      <ol>
+        <li><b>Solve the MIP</b> with HiGHS, to know the integer optimum <code>z_IP</code> for the gap calculation.</li>
+        <li><b>Solve the LP relaxation</b> (integrality dropped). Its optimum <code>x̄</code> gives the LP bound
+          <code>z_LP</code>. If <code>x̄</code> is already integral, no cut is needed.</li>
+        <li><b>Standard form:</b> <code>max c'x  s.t.  Ax ≤ b, x ≥ 0</code>. ≥ rows are negated, = rows become two rows,
+          variable bounds become rows, and a Min objective is negated. Each row keeps a label (<code>c1</code>,
+          <code>x1 ≤ 1</code>, …).</li>
+        <li><b>Normal form:</b> one slack per row, <code>Ax + s = b</code>. Slack <code>sᵢ</code> belongs to row
+          <code>i</code>.</li>
+        <li><b>Optimal tableau</b> from the solver's basis: <code>B⁻¹A</code>, <code>B⁻¹b</code> and the reduced costs.
+          Tableau cuts (GFC, SIC, GMI) read one of its rows; VPCs use one tableau for each side of the split.</li>
+        <li><b>Generate each selected cut</b> <code>α'x ≥ β</code> in the original variables.</li>
+        <li><b>Evaluate:</b> add the cut to the relaxation and solve again to get <code>z_cut</code>. For 2-D and 3-D
+          problems, also check the cut against every feasible integer point.</li>
+      </ol>
+      <div class="formula">gap closed (%) = 100 · (z_cut − z_LP) / (z_IP − z_LP)</div>
+    </section>
+
+    <section id="g-simplex" class="panel">
+      <h2>4 · The simplex panel</h2>
+      <p>It shows the LP relaxation <b>in standard form</b>, where every problem is a maximization. For a Min problem,
+        the z in the tableau is −(original objective).</p>
+      <h3>Iterations tab</h3>
+      <p>A textbook <b>two-phase simplex</b>, one tableau per step.</p>
+      <ul>
+        <li><b>Phase I</b> appears only if some right-hand side is negative. Those rows are multiplied by −1 and get an
+          artificial variable <code>aᵢ</code>; Phase I maximizes <code>−Σ aᵢ</code> to reach a feasible basis.</li>
+        <li><b>Phase II</b> then maximizes the real objective.</li>
+        <li><b>Bland's rule:</b> the entering variable is the first column with a negative reduced cost, and ties in
+          the ratio test go to the smallest basic index. This rule guarantees the simplex never cycles.</li>
+        <li><b>Highlighting:</b> shaded column = entering variable; shaded row = leaving variable; boxed cell =
+          pivot; last column = ratio test (<code>rhs ÷ entry</code> for positive entries).</li>
+      </ul>
+      <div class="formula">Tableau rows:  x_B + B⁻¹N x_N = B⁻¹b
+Objective row: z + d'x = z̄,   with reduced costs  d = c_B'B⁻¹A − c   (optimal when d ≥ 0)</div>
+      <h3>Analysis tab</h3>
+      <table>
+        <tr><th>Check</th><th>Meaning</th></tr>
+        <tr><td>B⁻¹b ≥ 0</td><td>the basis is primal feasible</td></tr>
+        <tr><td>reduced costs ≥ 0</td><td>no improving column, so the basis is optimal</td></tr>
+        <tr><td>basic columns = identity</td><td>the tableau is internally consistent</td></tr>
+        <tr><td>values, objective = solver's</td><td>the tableau reproduces HiGHS's solution</td></tr>
+        <tr><td>c_B'B⁻¹ = shadow prices</td><td>the simplex multipliers (duals) agree with the solver's</td></tr>
+        <tr><td>textbook simplex agrees</td><td>an independent algorithm reaches the same optimum</td></tr>
+      </table>
+      <ul>
+        <li><b>Reduced cost</b> of a non-basic variable: how much z drops per unit you force that variable up.
+          <b>Zero</b> means there may be alternative optima.</li>
+        <li><b>Shadow price</b> of a row: how much z changes per unit increase of that row's right-hand side.
+          A row is <b>binding</b> when its slack is 0.</li>
+        <li><b>Degenerate vertex:</b> a basic variable equal to 0. A pivot at such a vertex can leave z unchanged.</li>
+      </ul>
+    </section>
+
+    <section id="g-cuts" class="panel">
+      <h2>5 · Cut families</h2>
+      <p>Every cut is a linear inequality <code>α'x ≥ β</code> that removes the LP optimum <code>x̄</code> but keeps every
+        feasible integer point. All five start from the same split variable <code>x_k</code>, an integer variable with a
+        fractional value <code>x̄_k</code>.</p>
+      <div class="formula">Optimal-tableau row of x_k:   x_k + Σ_{j non-basic} ā_j x_j = b̄,     f0 = b̄ − ⌊b̄⌋ ∈ (0, 1)
+Split disjunction:            x_k ≤ ⌊x̄_k⌋   or   x_k ≥ ⌈x̄_k⌉</div>
+
+      <div class="method" id="g-gfc">
+        <h3><span class="swatch" style="background: var(--cut-gfc)"></span>5.1 Gomory fractional cut (GFC) — Gomory 1958</h3>
+        <dl class="kv">
+          <dt>Idea</dt><dd>Solve the LP relaxation and pick the tableau row of a fractional basic variable. For integer
+            values, Σ frac(ā_j)x_j and f0 are congruent modulo 1, and Σ frac(ā_j)x_j is non-negative, so it must be
+            at least f0.</dd>
+          <dt>Cut</dt><dd><div class="formula">Σ_{j non-basic} frac(ā_j) · x_j  ≥  f0          frac(a) = a − ⌊a⌋</div></dd>
+          <dt>Valid for</dt><dd><b>Pure integer problems only.</b> Every non-basic variable, slacks included, must be
+            integer. Each row is therefore first scaled to integer coefficients, so that its slack is integer at integer
+            points. For example, <code>−2x₁ − 2x₂ ≤ −0.5</code> becomes <code>−4x₁ − 4x₂ ≤ −1</code>. Problems with
+            continuous variables are refused; use GMI for them.</dd>
+          <dt>In the lab</dt><dd>The cuts table shows the derivation: the source row, f0, the fractional parts, the cut in
+            the non-basic variables, and the slack substitution.</dd>
+          <dt>Julia</dt><dd><code>gomory_fractional_cut(std_model, k, integer_vars)</code> → <code>(α, β, rescaled, derivation)</code>,
+            or <code>generate_cut(relaxed, k, integer_vars, :gfc)</code></dd>
+        </dl>
+        <p class="note">Worked example (toy problem): the row is <code>x1 + x2 − ¼ s1 = ¼</code>, so the fractional parts
+          are <code>0</code> and <code>¾</code>, and the cut is <code>¾ s1 ≥ ¼</code>. With <code>s1 = −1 + 4x1 + 4x2</code>,
+          this becomes <code>x1 + x2 ≥ ⅓</code>.</p>
+      </div>
+
+      <div class="method" id="g-sic">
+        <h3><span class="swatch" style="background: var(--cut-sic)"></span>5.2 Standard intersection cut (SIC) — Balas 1971</h3>
+        <dl class="kv">
+          <dt>Idea</dt><dd>Take the LP cone at <code>x̄</code>, with one ray per non-basic variable. Walk along each ray
+            until <code>x_k</code> reaches <code>⌊b̄⌋</code> or <code>⌈b̄⌉</code>, and pass the cut through those
+            intersection points. Nothing integer lies strictly between the two split hyperplanes.</dd>
+          <dt>Cut</dt><dd><div class="formula">λ_j = f0 / ā_j  if ā_j &gt; 0,   (1 − f0) / (−ā_j)  if ā_j &lt; 0,   ∞  if ā_j = 0
+Σ_j x_j / λ_j  ≥  1</div></dd>
+          <dt>Valid for</dt><dd>Any mixed-integer problem; only <code>x_k</code> needs to be integer.</dd>
+          <dt>Julia</dt><dd><code>sic_cut(std_model, k)</code> → <code>(α, β, λ, derivation)</code>, or
+            <code>generate_cut(relaxed, k, integer_vars, :sic)</code></dd>
+        </dl>
+      </div>
+
+      <div class="method" id="g-gmi">
+        <h3><span class="swatch" style="background: var(--cut-gmi)"></span>5.3 Gomory mixed-integer cut (GMI)</h3>
+        <dl class="kv">
+          <dt>Idea</dt><dd>The SIC, with the coefficients of <b>integer</b> non-basic variables strengthened. Shifting an
+            integer variable by a whole number keeps the point on the correct side of the split.</dd>
+          <dt>Cut</dt><dd><div class="formula">Σ_{j integer}    min( f_j/f0 , (1 − f_j)/(1 − f0) ) x_j
++ Σ_{j continuous} max( ā_j/f0 , −ā_j/(1 − f0) )     x_j   ≥  1          f_j = frac(ā_j)</div></dd>
+          <dt>Valid for</dt><dd>Any mixed-integer problem. Slacks are treated as continuous. GMI is never weaker than
+            SIC, and the two coincide when every non-basic variable is continuous.</dd>
+          <dt>Julia</dt><dd><code>gmi_cut(std_model, k, integer_vars)</code> → <code>(α, β, derivation)</code>, or
+            <code>generate_cut(relaxed, k, integer_vars, :gmi)</code></dd>
+        </dl>
+      </div>
+
+      <div class="method" id="g-vpc">
+        <h3><span class="swatch" style="background: var(--cut-vpc)"></span>5.4 V-polyhedral cut (VPC) — Balas &amp; Kazachkov</h3>
+        <dl class="kv">
+          <dt>Idea</dt><dd>Solve <b>each side</b> of the split as its own LP. Each side t has its own optimal vertex
+            <code>p_t</code> and cone rays <code>R_t</code>. Any inequality valid for all these points and rays is valid
+            for the union of the two sides, and therefore for every integer point. This describes each side better than
+            the single cone at <code>x̄</code> used by SIC and GMI.</dd>
+          <dt>Cut</dt><dd>Solve the <b>point-ray LP</b> (PRLP):<div class="formula">min α'x̄   s.t.   α'p_t ≥ β   (each side's vertex),    α'r ≥ 0   (each ray r)</div>
+            Normalization (<i>PRLP normalization</i> menu): <b>β = 1</b> (original), <b>‖α‖₁ ≤ 1</b> (always bounded),
+            or <b>Auto</b> (β = 1, falling back to ℓ1 when that LP has no optimum).</dd>
+          <dt>Special case</dt><dd>If one side is infeasible, the other side's split row is itself the cut.</dd>
+          <dt>Julia</dt><dd><code>create_disjunctive_subproblems</code> → <code>process_subproblem</code> →
+            <code>solve_prlp</code>, or <code>generate_cut(relaxed, k, integer_vars, :vpc)</code></dd>
+        </dl>
+      </div>
+
+      <div class="method" id="g-mono">
+        <h3><span class="swatch" style="background: var(--cut-vpc_mono)"></span>5.5 VPC + monoidal strengthening — Balas &amp; Jeroslow 1980</h3>
+        <dl class="kv">
+          <dt>Idea</dt><dd>Write the VPC on each side as a combination of that side's rows (Farkas multipliers
+            <code>u_t</code>). Replacing the split <code>e_k</code> by <code>e_k + μ</code>, with <code>μ</code> integer
+            on the integer variables, is still a valid split, so each integer coefficient can choose the best shift.</dd>
+          <dt>Cut</dt><dd><div class="formula">α̃_j = min_{μ ∈ ℤ} max( α¹_j − u0¹ μ ,  α²_j + u0² μ )   for integer j;   α̃_j = α_j otherwise</div>
+            β stays the same and <code>α̃ ≤ α</code>, so the cut is never weaker than the VPC.</dd>
+          <dt>Julia</dt><dd><code>prepare_monoidal_data</code> → <code>monoidal_strengthening</code>, or
+            <code>generate_cut(relaxed, k, integer_vars, :vpc_mono)</code></dd>
+        </dl>
+      </div>
+
+      <div class="method" id="g-compare">
+        <h3>5.6 Comparing them</h3>
+        <table>
+          <tr><th>Cut</th><th>Relaxation used</th><th>Integer strengthening</th><th>Problems</th></tr>
+          <tr><td>GFC</td><td>one tableau row at x̄</td><td>fractional rounding</td><td>pure integer</td></tr>
+          <tr><td>SIC</td><td>LP cone at x̄</td><td>none</td><td>mixed integer</td></tr>
+          <tr><td>GMI</td><td>LP cone at x̄</td><td>integer coefficients</td><td>mixed integer</td></tr>
+          <tr><td>VPC</td><td>each side's own vertex and cone</td><td>none</td><td>mixed integer</td></tr>
+          <tr><td>VPC + monoidal</td><td>each side's own vertex and cone</td><td>integer coefficients</td><td>mixed integer</td></tr>
+        </table>
+        <p>Always true: GMI is at least as strong as SIC, and VPC + monoidal is at least as strong as VPC. The other
+          pairs depend on the instance, which is what the lab is for. GFC is often the weakest, but because it uses
+          integer slacks it can beat GMI on some coefficients.</p>
+      </div>
+    </section>
+
+    <section id="g-results" class="panel">
+      <h2>6 · Reading the results</h2>
+      <ul>
+        <li><b>Summary</b> — objective sense, LP bound, MIP optimum, split variable and the number of fractional
+          variables.</li>
+        <li><b>Cuts table</b> — each cut's inequality and derivation, the new LP bound after adding it, the percentage
+          of the gap closed, and the <b>validity check</b>: whether the cut keeps all feasible integer points (2-D and
+          3-D problems). A red <i>INVALID</i> badge would mean a bug. <i>Does not cut off the LP optimum</i> means the
+          cut is valid but useless here.</li>
+        <li><b>Feasible region</b> — the LP relaxation (blue), the integer hull (dotted green), feasible integer points
+          (green dots), the LP optimum (red star), the MIP optimum (green diamond), and for each cut its line or plane, the
+          region it leaves, and the new LP optimum (×). The 3-D view can be dragged to rotate.</li>
+        <li><b>Bounds</b> — LP bound, each cut's bound, and the MIP optimum, side by side.</li>
+        <li><b>Solutions</b> — variable values at the LP optimum, the MIP optimum, and after each cut.</li>
+      </ul>
+    </section>
+
+    <section id="g-solve" class="panel">
+      <h2>7 · Solve tab: iterative methods</h2>
+      <p>The <b>Lab</b> adds one cut at a time. The <b>Solve</b> tab runs complete algorithms on the problem in the Lab
+        editor until the MIP is solved, or until a limit is reached. Pick an algorithm, set its options, and press
+        <i>Solve</i>.</p>
+
+      <div class="method">
+        <h3>7.1 Cutting planes · one cut family</h3>
+        <div class="formula">repeat
+  solve the LP (relaxation + every cut so far)
+  if the LP solution is integer → it is optimal for the MIP, stop
+  for each chosen fractional variable: generate a cut of the selected family
+  add every cut that cuts off the LP solution
+until no cut separates, the bound stalls for 5 rounds, or the round limit</div>
+        <ul>
+          <li><b>Cut on:</b> <i>first</i> or <i>most fractional</i> variable (one cut per round), or <i>every
+            fractional variable</i> (one cut per variable per round: more cuts, usually fewer rounds).</li>
+          <li><b>GFC</b> on a pure-integer problem is Gomory's classical cutting-plane algorithm. With the right
+            precautions it is guaranteed to finish in finitely many rounds. On the small built-in examples it reaches the
+            optimum in a few rounds, helped by the integer rounding below.</li>
+          <li><b>Pure-integer rounding:</b> when every variable is integer, each new cut is scaled to integer
+            coefficients and its right-hand side is rounded up (Chvátal–Gomory). This is valid because
+            <code>α'x</code> is an integer at integer points. It makes cuts slightly stronger and keeps the data
+            integral, so GFC stays exact in later rounds.</li>
+          <li><b>Tailing off:</b> later rounds often improve the bound less and less, as the convergence chart
+            shows. This is why solvers combine cuts with branching.</li>
+        </ul>
+      </div>
+
+      <div class="method">
+        <h3>7.2 Cutting planes · several families together</h3>
+        <p>The same loop, but every round adds the cuts of <b>all</b> ticked families, for example GMI + VPC. The rounds
+          table lists how many cuts of each family were added, and which were skipped and why (e.g. GFC on a
+          mixed-integer problem, or a cut that does not separate).</p>
+      </div>
+
+      <div class="method">
+        <h3>7.3 Branch and bound</h3>
+        <div class="formula">start with the root node (the LP relaxation)
+while there are open nodes:
+  pick a node (best bound / depth first / breadth first) and solve its LP
+  prune it if the LP is infeasible                      (red)
+  prune it if its bound cannot beat the incumbent       (orange)
+  if its solution is integer → new incumbent candidate  (green)
+  otherwise pick a fractional x_k (most / first fractional) and create
+     two children:  x_k ≤ ⌊x̄_k⌋   and   x_k ≥ ⌈x̄_k⌉       (blue = branched)</div>
+        <ul>
+          <li><b>Best bound</b> explores the node with the best LP bound first. It usually solves the fewest nodes.
+            <b>Depth first</b> finds integer solutions sooner and uses little memory. <b>Breadth first</b> goes level by
+            level.</li>
+          <li><b>Incumbent</b> = best integer solution found so far. <b>Best bound</b> = the best LP bound among open
+            nodes. When the two meet, the incumbent is optimal; the convergence chart shows both curves.</li>
+          <li>The <b>tree</b> shows every node with its branching constraint on the edge. Hover or click a node for its
+            bound and LP solution; the star is the optimal node. The table lists the nodes in the order they were
+            solved.</li>
+          <li><b>Replay</b> the search with ▶ Play or the slider: nodes appear in the order they were solved, the node just
+            solved is ringed, nodes created but not yet solved are hollow, and the label gives the incumbent and best bound
+            at that step. Each solved node shows its LP bound (and ✂ the cuts added there).</li>
+          <li><b>Compare B&amp;B and B&amp;C</b> runs both on the same problem and settings and shows the two trees side by
+            side, with nodes, depth, root bound, cuts and time; the better value of each is in bold.</li>
+        </ul>
+      </div>
+
+      <div class="method">
+        <h3>7.4 Branch and cut</h3>
+        <ul>
+          <li><b>Cut rounds at the root:</b> before branching, run cutting-plane rounds with the ticked families. Root
+            cuts are valid for the whole problem, so they are added to <b>every</b> node. The summary shows how much of the
+            gap they closed at the root.</li>
+          <li><b>Cut rounds at every node:</b> optional. Cuts found at a node use that node's branching bounds, so they are
+            valid only in its <b>subtree</b> (local cuts) and are passed to its children only.</li>
+          <li>Cuts tighten the bounds, so more nodes are pruned. On the built-in examples, branch and cut often proves
+            optimality at the root, with a tree of one node.</li>
+        </ul>
+      </div>
+
+      <div class="method">
+        <h3>7.5 Reading the Solve results</h3>
+        <ul>
+          <li><b>Status:</b> <i>Optimal — proven</i>; <i>no cut separates</i>; <i>bound stalled</i>; <i>round / node
+            limit reached</i>.</li>
+          <li><b>Convergence:</b> the LP bound per round, or the best bound and incumbent per node, against the MIP
+            optimum from HiGHS (dotted).</li>
+          <li><b>Feasible region</b> (2 or 3 variables): for cutting planes, a slider replays the rounds. It shows the
+            region left after each round, that round's cuts in bold, earlier ones faded, and the current LP optimum. For
+            branch and bound it shows the root cuts and every node's LP solution, labelled by node number.</li>
+        </ul>
+      </div>
+
+      <h3>From Julia</h3>
+      <pre><code>r = cutting_plane_loop(model; methods = [:gfc], max_rounds = 30, split_rule = :all)
+r.status, r.objective, length(r.rounds), length(r.cuts)
+
+r = cutting_plane_loop(model; methods = [:gmi, :vpc])      # several families together
+
+r = branch_and_bound(model; node_selection = :best_bound)  # branch and bound
+r = branch_and_bound(model; cut_methods = [:gmi], root_cut_rounds = 3,
+                     node_cut_rounds = 1)                   # branch and cut
+r.status, r.objective, r.x, length(r.nodes)</code></pre>
+    </section>
+
+    <section id="g-julia" class="panel">
+      <h2>8 · Using the Julia package</h2>
+      <p>Everything in the lab is available from Julia through the <code>CuttingPlane</code> package in this repository.</p>
+      <pre><code>git clone https://github.com/mhmdamini/Disjunctive_cuts_julia.git
+cd Disjunctive_cuts_julia
+julia --project=. -e 'using Pkg; Pkg.instantiate()'
+julia --project=. run.jl                   # command-line pipeline on the toy example
+julia --project=. run.jl model.mps 3       # your model, split on variable 3</code></pre>
+      <h3>One cut in a few lines</h3>
+      <pre><code>using CuttingPlane, JuMP
+
+model   = read_model("model.lp")           # or build it with JuMP
+relaxed = relax_model(model);  optimize_model!(relaxed)
+ints    = integer_variable_indices(model)
+k       = first(fractional_integer_variables(relaxed, ints))
+
+cut = generate_cut(relaxed, k, ints, :gmi)  # :gfc, :sic, :gmi, :vpc, :vpc_mono
+println(cut.note)                           # derivation / remarks
+tightened = add_cut(relaxed, cut.α, cut.β)
+optimize_model!(tightened)
+objective_value(tightened)</code></pre>
+      <h3>Step by step (what generate_cut does)</h3>
+      <pre><code>std     = create_standard_form_model(relaxed)    # max c'x, Ax ≤ b, x ≥ 0
+normal  = create_normal_form_model(std)          # Ax + s = b
+optimize_model!(normal)
+opt     = generate_optimal_simplex_tableau(normal)   # tableau, basis, non-basic, …
+verify_optimal_tableau(normal)                   # the six checks of the Analysis tab
+run     = tableau_simplex(std)                   # textbook two-phase simplex, every step
+
+# VPC by hand
+sides, D0 = create_disjunctive_subproblems(std, k, ints)
+foreach(optimize_model!, sides)
+res   = [process_subproblem(s) for s in sides]       # vertex + rays of each side
+ω, _  = get_variable_values(relaxed)
+_, α, β = solve_prlp(ω, [r.point for r in res], [r.rays for r in res]; normalization = :auto)</code></pre>
+      <p>Run the tests with <code>julia --project=. -e 'using Pkg; Pkg.test()'</code>.</p>
+    </section>
+
+    <section id="g-api" class="panel">
+      <h2>9 · Function reference</h2>
+      <div class="scroll"><table>
+        <tr><th>Function</th><th>What it does</th></tr>
+        <tr><td><code>read_model(path)</code></td><td>Read .lp / .mps / .mps.gz / .mof.json</td></tr>
+        <tr><td><code>relax_model(model)</code></td><td>Copy with integrality removed</td></tr>
+        <tr><td><code>optimize_model!(model; optimizer, verbose)</code></td><td>Attach a solver (HiGHS by default) and solve</td></tr>
+        <tr><td><code>get_variable_values(model)</code></td><td><code>(values, names)</code>; errors if not optimal</td></tr>
+        <tr><td><code>fractional_integer_variables(relaxed, ints)</code></td><td>Integer variables that are fractional at the LP optimum</td></tr>
+        <tr><td><code>create_standard_form_model(model)</code></td><td><code>max c'x, Ax ≤ b, x ≥ 0</code> with labelled rows</td></tr>
+        <tr><td><code>create_normal_form_model(model)</code></td><td>Adds one slack per row</td></tr>
+        <tr><td><code>generate_first_simplex_tableau(normal)</code></td><td>Initial tableau (slack basis)</td></tr>
+        <tr><td><code>generate_optimal_simplex_tableau(normal)</code></td><td>Optimal tableau from the solver's basis</td></tr>
+        <tr><td><code>verify_optimal_tableau(normal)</code></td><td>Optimality and solver-consistency checks</td></tr>
+        <tr><td><code>tableau_simplex(std)</code></td><td>Two-phase simplex (Bland's rule), every step recorded</td></tr>
+        <tr><td><code>compute_rays(tableau, structural, nonbasic)</code></td><td>Cone rays at the optimal vertex</td></tr>
+        <tr><td><code>gomory_fractional_cut(std, k, ints)</code></td><td>GFC (pure integer)</td></tr>
+        <tr><td><code>sic_cut(std, k)</code></td><td>Standard intersection cut</td></tr>
+        <tr><td><code>gmi_cut(std, k, ints)</code></td><td>Gomory mixed-integer cut</td></tr>
+        <tr><td><code>create_disjunctive_subproblems(std, k, ints)</code></td><td>The two sides of the split, and their right-hand sides <code>D0</code></td></tr>
+        <tr><td><code>process_subproblem(side)</code></td><td>Tableaux, vertex and rays of one side</td></tr>
+        <tr><td><code>solve_prlp(ω, points, rays; normalization)</code></td><td>Point-ray LP → <code>(model, α, β)</code></td></tr>
+        <tr><td><code>prepare_monoidal_data</code>, <code>monoidal_strengthening</code></td><td>Monoidal strengthening of a VPC</td></tr>
+        <tr><td><code>generate_cut(relaxed, k, ints, method)</code></td><td>Any family → <code>(α, β, note)</code></td></tr>
+        <tr><td><code>cutting_plane_loop(model; methods, max_rounds, split_rule)</code></td><td>Iterative cutting planes (one or several families) → status, rounds, cuts</td></tr>
+        <tr><td><code>branch_and_bound(model; node_selection, branching, cut_methods, root_cut_rounds, node_cut_rounds, max_nodes)</code></td><td>Branch and bound / branch and cut → status, incumbent, tree, history</td></tr>
+        <tr><td><code>separation_round!(lp, ints, methods)</code></td><td>One round of cut generation on a solved LP (adds the separating cuts)</td></tr>
+        <tr><td><code>integer_variable_indices(model)</code></td><td>Indices of integer and binary variables</td></tr>
+        <tr><td><code>add_cut(model, α, β)</code></td><td>Copy of the model with <code>α'x ≥ β</code> added</td></tr>
+        <tr><td><code>gap_closed(z_cut, z_int, z_lp)</code></td><td>Percentage of the integrality gap closed</td></tr>
+      </table></div>
+      <p class="note">Every function has a docstring: type <code>?generate_cut</code> in the Julia REPL.</p>
+    </section>
+
+    <section id="g-run" class="panel">
+      <h2>10 · Running the app</h2>
+      <ul>
+        <li><b>Desktop app</b> (Windows / macOS): install it from the repository's Releases page. It needs nothing
+          else and works offline.</li>
+        <li><b>From source:</b> <code>julia --project=app app/server.jl</code>, then open
+          <code>http://127.0.0.1:8000</code>. Use <code>PORT=9000</code> for another port, and press Ctrl+C to stop.</li>
+        <li><b>JSON API (Solve tab):</b> <code>POST /api/iterate</code> with
+          <code>{"text": "...", "algorithm": "cutting_planes" | "branch_and_bound" | "branch_and_cut", "methods": ["gmi"], ...}</code>.</li>
+        <li><b>JSON API:</b> <code>POST /api/solve</code> with
+          <code>{"text": "...", "format": "lp", "cuts": ["gmi", "vpc"], "var_index": null, "normalization": "auto"}</code>.</li>
+      </ul>
+    </section>
+
+    <section id="g-glossary" class="panel">
+      <h2>11 · Glossary</h2>
+      <dl class="kv">
+        <dt>LP relaxation</dt><dd>The problem with integrality dropped; its optimum is a bound on the MIP.</dd>
+        <dt>Cut</dt><dd>An inequality satisfied by every feasible integer point but violated by the current LP optimum.</dd>
+        <dt>Split disjunction</dt><dd><code>x_k ≤ ⌊x̄_k⌋ or x_k ≥ ⌈x̄_k⌉</code>: every integer point satisfies one of the two sides.</dd>
+        <dt>Basis</dt><dd>The m columns that the current vertex is solved for; the other variables are 0.</dd>
+        <dt>Reduced cost</dt><dd>The rate at which z changes when a non-basic variable increases.</dd>
+        <dt>Shadow price</dt><dd>The rate at which z changes when a row's right-hand side increases.</dd>
+        <dt>Degenerate</dt><dd>A vertex where some basic variable is 0, so several bases describe the same point.</dd>
+        <dt>Integer hull</dt><dd>The convex hull of the feasible integer points; the ideal relaxation.</dd>
+        <dt>Gap closed</dt><dd>The share of the gap between the LP bound and the MIP optimum that a cut removes.</dd>
+      </dl>
+    </section>
+
+  </article>
+</div>
+
+
+<script>
+// ------------------------------------------------------------------ views --
+function showView(v) {
+  document.querySelectorAll(".viewtabs button").forEach(b => b.classList.toggle("on", b.dataset.view === v));
+  $("#lab-view").classList.toggle("hidden", v !== "lab");
+  $("#solve-view").classList.toggle("hidden", v !== "solve");
+  $("#guide-view").classList.toggle("hidden", v !== "guide");
+  if (v === "solve") syncSolveProblem();
+  // Plots drawn while hidden need refitting once visible again.
+  if (v !== "guide") requestAnimationFrame(() => ["plot", "bounds", "conv-plot", "solve-plot", "tree-plot"].forEach(id => {
+    const el = document.getElementById(id);
+    if (el.data) Plotly.Plots.resize(el);
+  }));
+}
+document.querySelectorAll(".viewtabs button").forEach(b => b.addEventListener("click", () => showView(b.dataset.view)));
+// "Go to the lab" links inside the guide.
+document.addEventListener("click", (e) => {
+  if (e.target.closest("a[data-goto-lab]")) { e.preventDefault(); showView("lab"); }
+});
+
+// ---------------------------------------------------------------- examples --
+const EXAMPLES = [
+  { name: "2-D · toy problem (min)", format: "lp", text:
+`Minimize
+ obj: x1 + 2 x2
+Subject To
+ c1: -2 x1 - 2 x2 <= -0.5
+ c2: 2 x1 - x2 <= 1.5
+Bounds
+ x1 <= 1
+ x2 <= 1
+General
+ x1 x2
+End` },
+  { name: "2-D · roof", format: "lp", text:
+`Maximize
+ obj: x2
+Subject To
+ c1: -2 x1 + 2 x2 <= 1
+ c2: 2 x1 + 2 x2 <= 3
+Bounds
+ x1 <= 3
+ x2 <= 3
+General
+ x1 x2
+End` },
+  { name: "2-D · production planning", format: "lp", text:
+`Maximize
+ obj: 5 x + 4 y
+Subject To
+ labor:    6 x + 4 y <= 24.5
+ material: x + 2 y <= 6.5
+ demand:   -x + y <= 1
+General
+ x y
+End` },
+  { name: "3-D · knapsack-style", format: "lp", text:
+`Maximize
+ obj: 5 x + 4 y + 3 z
+Subject To
+ c1: 2 x + 3 y + z <= 5.5
+ c2: 4 x + y + 2 z <= 11.3
+ c3: 3 x + 4 y + 2 z <= 10.7
+General
+ x y z
+End` },
+];
+
+const $ = (s) => document.querySelector(s);
+const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+let format = "lp";
+let lastFractionalKey = "";
+
+const exampleSel = $("#example");
+EXAMPLES.forEach((e, i) => exampleSel.add(new Option(e.name, i)));
+exampleSel.add(new Option("Custom", "custom"));
+function loadExample(i) {
+  const e = EXAMPLES[i];
+  $("#problem").value = e.text;
+  setFormat(e.format);
+  resetSplit();
+}
+exampleSel.addEventListener("change", () => { if (exampleSel.value !== "custom") loadExample(+exampleSel.value); });
+$("#problem").addEventListener("input", () => { exampleSel.value = "custom"; resetSplit(); });
+
+// ------------------------------------------------------------ format/upload --
+function setFormat(f) {
+  format = f;
+  document.querySelectorAll("#format-seg button").forEach(b => b.classList.toggle("on", b.dataset.format === f));
+}
+document.querySelectorAll("#format-seg button").forEach(b => b.addEventListener("click", () => setFormat(b.dataset.format)));
+$("#upload-btn").addEventListener("click", () => $("#upload").click());
+$("#upload").addEventListener("change", async (ev) => {
+  const file = ev.target.files[0];
+  if (!file) return;
+  $("#problem").value = await file.text();
+  setFormat(/\.mps$/i.test(file.name) ? "mps" : "lp");
+  exampleSel.value = "custom";
+  resetSplit();
+  ev.target.value = "";
+});
+
+function resetSplit() {
+  const s = $("#split");
+  s.length = 1;
+  s.value = "";
+  lastFractionalKey = "";
+}
+
+// ------------------------------------------------------------------- run --
+$("#run").addEventListener("click", run);
+async function run() {
+  const cuts = [...document.querySelectorAll("input[name=cut]:checked")].map(c => c.value);
+  const split = $("#split").value;
+  const body = { text: $("#problem").value, format, cuts, normalization: $("#norm").value,
+                 var_index: split === "" ? null : +split };
+  const btn = $("#run");
+  btn.disabled = true; btn.textContent = "Solving…";
+  $("#error").classList.add("hidden");
+  try {
+    const res = await fetch("/api/solve", { method: "POST", headers: { "Content-Type": "application/json" },
+                                            body: JSON.stringify(body) });
+    const data = await res.json();
+    if (!res.ok || data.error) throw new Error(data.error || res.statusText);
+    render(data);
+  } catch (err) {
+    $("#error").textContent = err.message;
+    $("#error").classList.remove("hidden");
+  } finally {
+    btn.disabled = false; btn.textContent = "Generate cuts";
+  }
+}
+
+// --------------------------------------------------------------- helpers --
+const fmt = (x, d = 4) => x === null || x === undefined ? "—" : (+x).toLocaleString(undefined, { maximumFractionDigits: d });
+const cutColor = (m) => css(`--cut-${m}`);
+const rgba = (hex, a) => {
+  const c = document.createElement("canvas").getContext("2d");
+  c.fillStyle = hex; const h = c.fillStyle;   // normalise to #rrggbb
+  const n = parseInt(h.slice(1), 16);
+  return `rgba(${n >> 16 & 255}, ${n >> 8 & 255}, ${n & 255}, ${a})`;
+};
+const esc = (s) => String(s).replace(/[&<>]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+
+// ---------------------------------------------------------------- render --
+function render(d) {
+  lastData = d;
+  $("#placeholder").classList.add("hidden");
+  $("#results").classList.remove("hidden");
+  updateSplitOptions(d);
+
+  const splitName = d.split_var ? d.variables[d.split_var - 1] : "—";
+  const cards = [
+    ["Objective", d.sense === "min" ? "Minimize" : "Maximize"],
+    ["LP bound", fmt(d.lp.bound)],
+    ["MIP optimum", d.mip.bound === null ? d.mip.status : fmt(d.mip.bound)],
+    ["Split variable", d.split_var ? `${splitName} = ${fmt(d.lp.solution[d.split_var - 1])}` : "none"],
+    ["Fractional vars", d.fractional.length],
+  ];
+  $("#cards").innerHTML = cards.map(([k, v]) => `<div class="card"><div class="k">${k}</div><div class="v">${esc(v)}</div></div>`).join("");
+
+  renderCuts(d);
+  renderPlot(d);
+  renderBounds(d);
+  renderSolutions(d);
+  stepIndex = 0;
+  renderSimplex(d);
+  $("#model-text").textContent = d.model_text;
+  // Plots are drawn while the layout is still settling; fit them to their panels.
+  requestAnimationFrame(() => ["plot", "bounds"].forEach(id => {
+    const el = document.getElementById(id);
+    if (el.data) Plotly.Plots.resize(el);
+  }));
+}
+
+function updateSplitOptions(d) {
+  const key = d.fractional.map(f => f.index).join(",");
+  if (key === lastFractionalKey) return;
+  lastFractionalKey = key;
+  const s = $("#split"), keep = s.value;
+  s.length = 1;
+  d.fractional.forEach(f => s.add(new Option(`${f.name} = ${fmt(f.value)}`, f.index)));
+  s.value = [...s.options].some(o => o.value === keep) ? keep : "";
+}
+
+function renderCuts(d) {
+  const t = $("#cuts-table");
+  if (!d.split_var) {
+    t.innerHTML = `<tr><td class="empty">The LP optimum is already integral, so no cut is needed.</td></tr>`;
+    return;
+  }
+  if (!d.cuts.length) { t.innerHTML = `<tr><td class="empty">No cut family selected.</td></tr>`; return; }
+  const head = `<tr><th>Cut</th><th>Inequality</th><th class="num">Bound</th><th>Gap closed</th><th>Validity</th></tr>`;
+  const rows = d.cuts.map(c => {
+    const sw = `<span class="swatch" style="background:${cutColor(c.method)}"></span>`;
+    if (c.error) return `<tr><td>${sw} ${esc(c.label)}</td><td colspan="4"><span class="badge bad">failed</span> <span class="note">${esc(c.error)}</span></td></tr>`;
+    const gap = c.gap_closed === null ? "—" :
+      `${fmt(c.gap_closed, 2)}%<div class="gapbar"><span style="width:${Math.max(0, Math.min(100, c.gap_closed))}%;background:${cutColor(c.method)}"></span></div>`;
+    let valid;
+    if (c.checked_points !== undefined)
+      valid = c.violated_points === 0 ? `<span class="badge ok">valid on all ${c.checked_points} integer points</span>`
+                                      : `<span class="badge bad">INVALID: cuts off ${c.violated_points} of ${c.checked_points} integer points</span>`;
+    else valid = `<span class="badge na">not checked</span>`;
+    if (!c.separates) valid += ` <span class="badge na">does not cut off the LP optimum</span>`;
+    return `<tr><td>${sw} ${esc(c.label)}</td>
+      <td><div class="cutexpr">${esc(c.text)}</div><div class="note">${esc(c.note || "")}</div></td>
+      <td class="num">${fmt(c.bound)}</td><td>${gap}</td><td>${valid}</td></tr>`;
+  });
+  t.innerHTML = head + rows.join("");
+}
+
+function plotLayoutBase() {
+  return {
+    paper_bgcolor: "rgba(0,0,0,0)", plot_bgcolor: "rgba(0,0,0,0)",
+    font: { color: css("--ink"), size: 12 }, margin: { l: 50, r: 10, t: 10, b: 40 },
+    legend: { orientation: "h", y: -0.16, yanchor: "top" },
+  };
+}
+
+function renderPlot(d) {
+  const g = d.geometry;
+  const noPlot = !g;
+  $("#plot").classList.toggle("hidden", noPlot);
+  $("#plot-empty").classList.toggle("hidden", !noPlot);
+  if (noPlot) { Plotly.purge("plot"); return; }
+  (g.dim === 2 ? plot2d : plot3d)(d, g);
+}
+
+function plot2d(d, g) {
+  const close = (pts) => pts.length ? [...pts, pts[0]] : pts;
+  const xs = (pts) => pts.map(p => p[0]), ys = (pts) => pts.map(p => p[1]);
+  const traces = [];
+  const lp = close(g.lp_region);
+  traces.push({ x: xs(lp), y: ys(lp), fill: "toself", mode: "lines", name: "LP relaxation",
+                line: { color: css("--lp"), width: 1.5 }, fillcolor: rgba(css("--lp"), 0.10) });
+  if (g.integer_hull.length >= 3) {
+    const h = close(g.integer_hull);
+    traces.push({ x: xs(h), y: ys(h), fill: "toself", mode: "lines", name: "Integer hull",
+                  line: { color: css("--hull"), width: 1.5, dash: "dot" }, fillcolor: rgba(css("--hull"), 0.14) });
+  }
+  let k = 0;
+  d.cuts.forEach((c) => {
+    if (c.error) return;
+    const geo = g.cuts[k++], col = cutColor(c.method);
+    if (geo.region.length >= 3) {
+      const r = close(geo.region);
+      traces.push({ x: xs(r), y: ys(r), fill: "toself", mode: "lines", name: `${c.label}: region`, legendgroup: c.method,
+                    line: { width: 0 }, fillcolor: rgba(col, 0.13), hoverinfo: "skip" });
+    }
+    traces.push({ x: xs(geo.plane), y: ys(geo.plane), mode: "lines", name: c.label, legendgroup: c.method,
+                  line: { color: col, width: 2.5 }, hovertemplate: `${esc(c.text)}<extra></extra>` });
+    traces.push({ x: [c.solution[0]], y: [c.solution[1]], mode: "markers", name: `${c.label}: new optimum`,
+                  legendgroup: c.method, showlegend: false,
+                  marker: { color: col, size: 11, symbol: "x" }, hovertemplate: `new LP optimum (%{x}, %{y})<extra></extra>` });
+  });
+  if (g.integer_infeasible.length)
+    traces.push({ x: xs(g.integer_infeasible), y: ys(g.integer_infeasible), mode: "markers", name: "Integer (infeasible)",
+                  marker: { color: css("--muted"), size: 5, opacity: 0.45 }, hoverinfo: "skip" });
+  if (g.integer_feasible.length)
+    traces.push({ x: xs(g.integer_feasible), y: ys(g.integer_feasible), mode: "markers", name: "Integer (feasible)",
+                  marker: { color: css("--hull"), size: 9, line: { color: css("--panel"), width: 1 } } });
+  traces.push({ x: [d.lp.solution[0]], y: [d.lp.solution[1]], mode: "markers", name: "LP optimum",
+                marker: { color: css("--bad"), size: 15, symbol: "star" } });
+  if (d.mip.solution)
+    traces.push({ x: [d.mip.solution[0]], y: [d.mip.solution[1]], mode: "markers", name: "MIP optimum",
+                  marker: { color: css("--hull"), size: 14, symbol: "diamond-open", line: { width: 2.5 } } });
+  const axis = (i) => ({ title: d.variables[i], range: [g.lo[i], g.hi[i]], dtick: (g.hi[i] - g.lo[i]) <= 14 ? 1 : null,
+                         gridcolor: css("--line"), zerolinecolor: css("--muted") });
+  const layout = { ...plotLayoutBase(), margin: { l: 50, r: 10, t: 10, b: 50 },
+                   xaxis: axis(0), yaxis: { ...axis(1), scaleanchor: "x", scaleratio: 1 } };
+  Plotly.react("plot", traces, layout, { responsive: true, displaylogo: false });
+}
+
+function plot3d(d, g) {
+  const col = (pts, j) => pts.map(p => p[j]);
+  const traces = [];
+  traces.push({ type: "mesh3d", x: col(g.lp_region, 0), y: col(g.lp_region, 1), z: col(g.lp_region, 2), alphahull: 0,
+                opacity: 0.12, color: css("--lp"), name: "LP relaxation", showlegend: true, hoverinfo: "skip" });
+  if (g.integer_hull.length >= 4)
+    traces.push({ type: "mesh3d", x: col(g.integer_hull, 0), y: col(g.integer_hull, 1), z: col(g.integer_hull, 2), alphahull: 0,
+                  opacity: 0.22, color: css("--hull"), name: "Integer hull", showlegend: true, hoverinfo: "skip" });
+  let k = 0;
+  d.cuts.forEach((c) => {
+    if (c.error) return;
+    const geo = g.cuts[k++], color = cutColor(c.method), P = geo.plane;
+    if (P.length >= 3) {
+      const I = [], J = [], K = [];
+      for (let t = 1; t < P.length - 1; t++) { I.push(0); J.push(t); K.push(t + 1); }
+      traces.push({ type: "mesh3d", x: col(P, 0), y: col(P, 1), z: col(P, 2), i: I, j: J, k: K, opacity: 0.32, color,
+                    name: c.label, showlegend: true, legendgroup: c.method, hovertemplate: `${esc(c.text)}<extra></extra>` });
+    }
+    if (geo.region.length >= 4)
+      traces.push({ type: "mesh3d", x: col(geo.region, 0), y: col(geo.region, 1), z: col(geo.region, 2), alphahull: 0,
+                    opacity: 0.18, color, name: `${c.label}: region`, showlegend: true, legendgroup: c.method,
+                    visible: "legendonly", hoverinfo: "skip" });
+    traces.push({ type: "scatter3d", mode: "markers", x: [c.solution[0]], y: [c.solution[1]], z: [c.solution[2]],
+                  marker: { color, size: 5, symbol: "x" }, name: `${c.label}: new optimum`, legendgroup: c.method, showlegend: false });
+  });
+  if (g.integer_feasible.length)
+    traces.push({ type: "scatter3d", mode: "markers", x: col(g.integer_feasible, 0), y: col(g.integer_feasible, 1),
+                  z: col(g.integer_feasible, 2), marker: { color: css("--hull"), size: 4 }, name: "Integer (feasible)" });
+  if (g.integer_infeasible.length)
+    traces.push({ type: "scatter3d", mode: "markers", x: col(g.integer_infeasible, 0), y: col(g.integer_infeasible, 1),
+                  z: col(g.integer_infeasible, 2), marker: { color: css("--muted"), size: 2, opacity: 0.4 },
+                  name: "Integer (infeasible)", visible: "legendonly" });
+  traces.push({ type: "scatter3d", mode: "markers", x: [d.lp.solution[0]], y: [d.lp.solution[1]], z: [d.lp.solution[2]],
+                marker: { color: css("--bad"), size: 7, symbol: "diamond" }, name: "LP optimum" });
+  if (d.mip.solution)
+    traces.push({ type: "scatter3d", mode: "markers", x: [d.mip.solution[0]], y: [d.mip.solution[1]], z: [d.mip.solution[2]],
+                  marker: { color: css("--hull"), size: 7, symbol: "diamond-open" }, name: "MIP optimum" });
+  const ax = (i) => ({ title: d.variables[i], range: [g.lo[i], g.hi[i]], gridcolor: css("--line"),
+                       backgroundcolor: "rgba(0,0,0,0)", dtick: (g.hi[i] - g.lo[i]) <= 14 ? 1 : null });
+  const layout = { ...plotLayoutBase(), margin: { l: 0, r: 0, t: 0, b: 0 },
+                   scene: { xaxis: ax(0), yaxis: ax(1), zaxis: ax(2), aspectmode: "cube" } };
+  Plotly.react("plot", traces, layout, { responsive: true, displaylogo: false });
+}
+
+function renderBounds(d) {
+  const labels = ["LP relaxation"], vals = [d.lp.bound], colors = [css("--lp")];
+  d.cuts.forEach(c => { if (!c.error) { labels.push(c.label); vals.push(c.bound); colors.push(cutColor(c.method)); } });
+  if (d.mip.bound !== null) { labels.push("MIP optimum"); vals.push(d.mip.bound); colors.push(css("--hull")); }
+  const lo = Math.min(...vals), hi = Math.max(...vals), pad = (hi - lo || 1) * 0.15;
+  Plotly.react("bounds", [{
+    type: "bar", orientation: "h", y: labels, x: vals, marker: { color: colors },
+    text: vals.map(v => fmt(v)), textposition: "outside", cliponaxis: false, hovertemplate: "%{y}: %{x}<extra></extra>",
+  }], { ...plotLayoutBase(), margin: { l: 210, r: 50, t: 5, b: 30 }, showlegend: false,
+        xaxis: { range: [lo - pad, hi + pad], gridcolor: css("--line"), zeroline: false },
+        yaxis: { autorange: "reversed" } }, { responsive: true, displaylogo: false });
+}
+
+function renderSolutions(d) {
+  const cols = [["LP", d.lp.solution], ["MIP", d.mip.solution]];
+  d.cuts.forEach(c => { if (!c.error) cols.push([c.label, c.solution]); });
+  const head = `<tr><th>Variable</th>${cols.map(([n]) => `<th class="num">${esc(n)}</th>`).join("")}</tr>`;
+  const rows = d.variables.map((v, i) => `<tr><td>${esc(v)}${d.integer_vars.includes(i + 1) ? ' <span class="badge na">int</span>' : ""}</td>` +
+    cols.map(([, s]) => `<td class="num">${s ? fmt(s[i]) : "—"}</td>`).join("") + "</tr>");
+  $("#sol-table").innerHTML = head + rows.join("");
+}
+
+// ------------------------------------------------------------- simplex --
+let simplexData = null, stepIndex = 0;
+
+/** Number as a short fraction (denominator ≤ 1000) when "Fractions" is on. */
+function num(x) {
+  if (x === null || x === undefined) return "—";
+  if (!$("#fractions").checked) return fmt(x, 4);
+  if (Math.abs(x - Math.round(x)) < 1e-9) return String(Math.round(x));
+  let [h0, h1, k0, k1, v] = [0, 1, 1, 0, Math.abs(x)];
+  for (let i = 0; i < 30; i++) {
+    const a = Math.floor(v);
+    [h0, h1] = [h1, a * h1 + h0];
+    [k0, k1] = [k1, a * k1 + k0];
+    if (k1 > 1000) { h1 = h0; k1 = k0; break; }
+    if (Math.abs(h1 / k1 - Math.abs(x)) < 1e-9) break;
+    v = 1 / (v - a);
+  }
+  return Math.abs(h1 / k1 - Math.abs(x)) < 1e-6 ? `${x < 0 ? "−" : ""}${h1}/${k1}` : fmt(x, 4);
+}
+
+/** Render a tableau {columns, basis, rows, rhs, reduced, objective} with optional pivot info. */
+function tableauHTML(t, opts = {}) {
+  const { entering = null, leaving = null, ratios = null, highlightBasis = null } = opts;
+  const showRatio = ratios && ratios.some(r => r !== null);
+  const head = `<tr><th>Basis</th>${t.columns.map((c, j) =>
+      `<th class="num ${j === entering ? "enter" : ""}">${esc(c)}</th>`).join("")}<th class="num sep">rhs</th>` +
+    (showRatio ? `<th class="num">ratio</th>` : "") + `</tr>`;
+  const body = t.rows.map((row, i) => {
+    const cls = [i === leaving ? "leave" : "", t.basis[i] === highlightBasis ? "hlrow" : ""].join(" ");
+    return `<tr class="${cls}"><td><b>${esc(t.basis[i])}</b></td>` +
+      row.map((v, j) => `<td class="num ${j === entering ? "enter" : ""} ${i === leaving && j === entering ? "pivot" : ""} ` +
+                        `${t.basis[i] === highlightBasis ? "hl" : ""} ${Math.abs(v) < 1e-12 ? "muted" : ""}">${num(v)}</td>`).join("") +
+      `<td class="num sep ${t.basis[i] === highlightBasis ? "hl" : ""}">${num(t.rhs[i])}</td>` +
+      (showRatio ? `<td class="num">${ratios[i] === null ? "" : num(ratios[i])}</td>` : "") + `</tr>`;
+  });
+  const z = `<tr class="zrow"><td>z</td>${t.reduced.map((v, j) =>
+      `<td class="num ${j === entering ? "enter" : ""} ${Math.abs(v) < 1e-12 ? "muted" : ""}">${num(v)}</td>`).join("")}` +
+    `<td class="num sep">${num(t.objective)}</td>${showRatio ? "<td></td>" : ""}</tr>`;
+  return head + body.join("") + z;
+}
+
+function renderSimplex(d) {
+  simplexData = d;
+  const s = d.simplex;
+  $("#simplex-note").textContent = `${s.sense_note} Rows: ${s.row_labels.map((r, i) => `s${i + 1} ↔ ${r}`).join(", ")}.`;
+  const iters = s.iterations;
+  if (!iters) {
+    $("#step-select").length = 0;
+    $("#step-note").textContent = "The problem is too large to show every tableau; see the Analysis tab.";
+    $("#step-table").innerHTML = "";
+  } else {
+    const sel = $("#step-select");
+    sel.length = 0;
+    iters.forEach((st, i) => sel.add(new Option(
+      `Step ${i + 1} of ${iters.length} · Phase ${st.phase === 1 ? "I" : "II"}${st.entering === null ? " · final" : ""}`, i)));
+    stepIndex = Math.min(stepIndex, iters.length - 1);
+    if (stepIndex < 0) stepIndex = 0;
+    showStep(stepIndex);
+  }
+  renderAnalysis(d);
+}
+
+function showStep(i) {
+  const iters = simplexData.simplex.iterations;
+  if (!iters || !iters.length) return;
+  stepIndex = Math.max(0, Math.min(i, iters.length - 1));
+  const st = iters[stepIndex];
+  $("#step-select").value = stepIndex;
+  $("#step-prev").disabled = stepIndex === 0;
+  $("#step-next").disabled = stepIndex === iters.length - 1;
+  $("#step-note").innerHTML = `<span class="phase">Phase ${st.phase === 1 ? "I" : "II"}</span>${esc(st.note)}` +
+    (st.phase === 1 ? ` <span class="note">(Phase I maximises −Σ artificials to find a feasible basis.)</span>` : "");
+  $("#step-table").innerHTML = tableauHTML(st, { entering: st.entering, leaving: st.leaving, ratios: st.ratios });
+}
+
+function renderAnalysis(d) {
+  const s = d.simplex;
+  $("#simplex-checks").innerHTML = s.checks.map(c =>
+    `<li class="${c.ok ? "ok" : "fail"}"><span class="mark">${c.ok ? "✓" : "✗"}</span>` +
+    `<span>${esc(c.check)} <span class="note">— ${esc(c.detail)}</span></span></li>`).join("");
+  const splitName = d.split_var ? d.variables[d.split_var - 1] : null;
+  $("#opt-table").innerHTML = tableauHTML(s.optimal, { highlightBasis: splitName });
+
+  const meaning = (v) => {
+    if (v.basic) return Math.abs(v.value) < 1e-9 ? "basic at 0 (degenerate)" : "basic";
+    if (Math.abs(v.reduced_cost) < 1e-9) return "non-basic, reduced cost 0: alternative optimum";
+    return `non-basic: raising it by 1 lowers z by ${num(v.reduced_cost)}`;
+  };
+  $("#var-table").innerHTML = `<tr><th>Variable</th><th>Type</th><th class="num">Value</th><th class="num">Reduced cost</th><th>Meaning</th></tr>` +
+    s.variables.map(v => `<tr><td><b>${esc(v.name)}</b>${v.name === splitName ? ' <span class="badge na">split</span>' : ""}</td>` +
+      `<td>${v.kind}${v.basic ? ' <span class="badge ok">basic</span>' : ""}</td><td class="num">${num(v.value)}</td>` +
+      `<td class="num">${num(v.reduced_cost)}</td><td class="note">${meaning(v)}</td></tr>`).join("");
+
+  $("#con-table").innerHTML = `<tr><th>Row</th><th>Slack</th><th class="num">Slack value</th><th>Status</th><th class="num">Shadow price</th></tr>` +
+    s.constraints.map(c => `<tr><td>${esc(c.label)}</td><td>${c.slack}</td><td class="num">${num(c.slack_value)}</td>` +
+      `<td>${c.binding ? '<span class="badge ok">binding</span>' : '<span class="badge na">slack</span>'}</td>` +
+      `<td class="num">${num(c.shadow_price)}</td></tr>`).join("");
+
+  const notes = [];
+  notes.push(s.degenerate.length ? `Degenerate vertex: ${s.degenerate.join(", ")} ${s.degenerate.length > 1 ? "are" : "is"} basic at value 0, so a pivot here may not change the objective.`
+                                 : "Non-degenerate vertex: every basic variable is strictly positive.");
+  notes.push(s.alternative.length ? `Alternative optima may exist: non-basic ${s.alternative.join(", ")} ${s.alternative.length > 1 ? "have" : "has"} reduced cost 0.`
+                                  : "Unique optimal basis: every non-basic variable has a strictly positive reduced cost.");
+  notes.push("Shadow price = change of z (standard-form objective) per unit increase of that row's right-hand side.");
+  $("#degeneracy").innerHTML = notes.map(esc).join("<br>");
+}
+
+document.querySelectorAll("#simplex-tabs button").forEach(b => b.addEventListener("click", () => {
+  document.querySelectorAll("#simplex-tabs button").forEach(x => x.classList.toggle("on", x === b));
+  $("#simplex-iter").classList.toggle("hidden", b.dataset.tab !== "iter");
+  $("#simplex-analysis").classList.toggle("hidden", b.dataset.tab !== "analysis");
+}));
+$("#step-prev").addEventListener("click", () => showStep(stepIndex - 1));
+$("#step-next").addEventListener("click", () => showStep(stepIndex + 1));
+$("#step-select").addEventListener("change", (e) => showStep(+e.target.value));
+$("#fractions").addEventListener("change", () => { if (simplexData) { showStep(stepIndex); renderAnalysis(simplexData); } });
+
+// ------------------------------------------------------------------ solve --
+const ALGO_HELP = {
+  cp_one: "Repeat: solve the LP, add cuts of one family, solve again — until the LP solution is integer (then it is optimal), no cut separates it, or the round limit.",
+  cp_many: "The same loop, but each round adds the cuts of every selected family together.",
+  bb: "Split on a fractional variable into two sub-LPs, recursively. Prune nodes that are infeasible, that cannot beat the best integer solution, or whose LP solution is integer.",
+  bc: "Branch and bound plus cutting-plane rounds: at the root (cuts valid everywhere) and, optionally, at every node (cuts kept for that node's subtree).",
+};
+const STATUS_TEXT = {
+  optimal: "Optimal — proven", no_cuts: "Stopped — no cut separates", stalled: "Stopped — bound stalled",
+  round_limit: "Round limit reached", lp_failed: "LP failed", node_limit: "Node limit reached",
+  infeasible: "Infeasible", root_lp_failed: "Root LP failed",
+};
+const NODE_COLORS = { integer: "--good", branched: "--accent", infeasible: "--bad", pruned_bound: "--warn", open: "--muted" };
+const NODE_TEXT = { integer: "integer (candidate)", branched: "branched", infeasible: "infeasible", pruned_bound: "pruned by bound", open: "not explored" };
+let solveData = null, replayRound = 0;
+
+function updateSolveOptions() {
+  const a = $("#algo").value;
+  $("#algo-help").textContent = ALGO_HELP[a];
+  $("#opt-family-one").classList.toggle("hidden", a !== "cp_one");
+  $("#opt-family-many").classList.toggle("hidden", !(a === "cp_many" || a === "bc"));
+  $("#opt-cp").classList.toggle("hidden", a === "bb");
+  $("#max-rounds").closest("div").classList.toggle("hidden", a === "bc");
+  $("#opt-bb").classList.toggle("hidden", !(a === "bb" || a === "bc"));
+  $("#opt-bc").classList.toggle("hidden", a !== "bc");
+  $("#opt-norm").classList.toggle("hidden", a === "bb");
+}
+$("#algo").addEventListener("change", updateSolveOptions);
+
+function syncSolveProblem() { $("#solve-problem").textContent = $("#problem").value; }
+
+$("#solve-run").addEventListener("click", solveRun);
+async function solveRun() {
+  const a = $("#algo").value;
+  const methods = a === "cp_one" ? [$("#family-one").value]
+                                 : [...document.querySelectorAll("input[name=scut]:checked")].map(c => c.value);
+  if (a !== "bb" && !methods.length) { showSolveError("Select at least one cut family."); return; }
+  const body = {
+    text: $("#problem").value, format,
+    algorithm: a.startsWith("cp") ? "cutting_planes" : a === "bb" ? "branch_and_bound" : "branch_and_cut",
+    methods, max_rounds: +$("#max-rounds").value, split_rule: $("#split-rule").value,
+    node_selection: $("#node-sel").value, branching: $("#branch-rule").value, max_nodes: +$("#max-nodes").value,
+    root_cut_rounds: +$("#root-rounds").value, node_cut_rounds: +$("#node-rounds").value,
+    normalization: $("#solve-norm").value,
+  };
+  const btn = $("#solve-run");
+  btn.disabled = true; btn.textContent = "Solving…";
+  $("#solve-error").classList.add("hidden");
+  try {
+    const res = await fetch("/api/iterate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    const data = await res.json();
+    if (!res.ok || data.error) throw new Error(data.error || res.statusText);
+    renderSolve(data);
+  } catch (err) {
+    showSolveError(err.message);
+  } finally {
+    btn.disabled = false; btn.textContent = "Solve";
+  }
+}
+function showSolveError(msg) { $("#solve-error").textContent = msg; $("#solve-error").classList.remove("hidden"); }
+
+function renderSolve(d) {
+  solveData = d;
+  $("#solve-placeholder").classList.add("hidden");
+  $("#solve-results").classList.remove("hidden");
+  const cp = d.algorithm === "cutting_planes";
+  const steps = cp ? d.rounds.length - 1 : d.nodes.filter(n => n.order > 0).length;
+  const finalVal = d.objective;
+  const cards = [
+    ["Status", STATUS_TEXT[d.status] || d.status],
+    [cp ? "Final LP bound" : "Best integer solution", finalVal === null ? "none" : fmt(finalVal)],
+    ["MIP optimum (HiGHS)", d.mip.bound === null ? d.mip.status : fmt(d.mip.bound)],
+    ["LP relaxation", fmt(d.lp.bound)],
+    [cp ? "Rounds" : "Nodes solved", cp ? steps : `${steps} of ${d.nodes.length}`],
+    ["Cuts added", d.total_cuts],
+  ];
+  if (cp && d.rounds.length) cards.push(["Gap closed", d.rounds.at(-1).gap_closed === null ? "—" : `${fmt(d.rounds.at(-1).gap_closed, 2)}%`]);
+  if (d.algorithm === "branch_and_cut") cards.push(["Root gap closed by cuts", d.root_gap_closed === null ? "—" : `${fmt(d.root_gap_closed, 2)}%`]);
+  cards.push(["Time", `${fmt(d.seconds, 2)} s`]);
+  $("#solve-cards").innerHTML = cards.map(([k, v]) => `<div class="card"><div class="k">${k}</div><div class="v">${esc(v)}</div></div>`).join("");
+
+  const notes = {
+    optimal: cp ? "The LP solution became integer, so it is optimal for the MIP." : "Every node was pruned or explored: the best integer solution is optimal.",
+    no_cuts: "No selected cut family produced a cut that separates the current LP solution. Try other families, \"every fractional variable\", or branch and cut.",
+    stalled: "The bound did not move for several rounds (tailing off) — typical for pure cutting planes; branch and cut finishes such problems.",
+    round_limit: "The round limit was reached before the LP solution became integer.",
+    node_limit: "The node limit was reached; the best integer solution so far is shown.",
+  };
+  $("#solve-status-note").textContent = notes[d.status] || "";
+
+  renderConvergence(d);
+  $("#tree-panel").classList.toggle("hidden", cp);
+  if (!cp) renderTree(d);
+  replayRound = cp ? d.rounds.length - 1 : 0;
+  setupReplay(d);
+  renderSteps(d);
+  requestAnimationFrame(() => ["conv-plot", "solve-plot", "tree-plot"].forEach(id => {
+    const el = document.getElementById(id);
+    if (el.data) Plotly.Plots.resize(el);
+  }));
+}
+
+function renderConvergence(d) {
+  const traces = [], cp = d.algorithm === "cutting_planes";
+  if (cp) {
+    $("#conv-title").textContent = "Convergence · LP bound per round";
+    traces.push({ x: d.rounds.map(r => r.round), y: d.rounds.map(r => r.bound), mode: "lines+markers", name: "LP bound with cuts",
+                  line: { color: css("--accent"), width: 2 } });
+  } else {
+    $("#conv-title").textContent = "Convergence · bounds per node solved";
+    const h = d.history;
+    traces.push({ x: h.map(p => p.node), y: h.map(p => p.best_bound), mode: "lines", name: "Best bound (open nodes)",
+                  line: { color: css("--accent"), width: 2, shape: "hv" } });
+    traces.push({ x: h.map(p => p.node), y: h.map(p => p.incumbent), mode: "lines", name: "Incumbent (best integer)",
+                  line: { color: css("--good"), width: 2, shape: "hv" } });
+  }
+  if (d.mip.bound !== null) {
+    const xs = traces[0].x;
+    traces.push({ x: [xs[0], xs.at(-1)], y: [d.mip.bound, d.mip.bound], mode: "lines", name: "MIP optimum",
+                  line: { color: css("--hull"), dash: "dot", width: 1.5 } });
+  }
+  Plotly.react("conv-plot", traces, { ...plotLayoutBase(), margin: { l: 60, r: 10, t: 10, b: 40 },
+    legend: { orientation: "h", x: 1, xanchor: "right", y: 1, yanchor: "bottom" },
+    xaxis: { title: cp ? "round" : "nodes solved", gridcolor: css("--line"), dtick: cp && traces[0].x.length <= 30 ? 1 : null },
+    yaxis: { title: "objective", gridcolor: css("--line") } }, { responsive: true, displaylogo: false });
+}
+
+// ---- Region replay -------------------------------------------------------------
+function setupReplay(d) {
+  const g = d.geometry, cp = d.algorithm === "cutting_planes";
+  const has = !!g;
+  $("#solve-plot").classList.toggle("hidden", !has);
+  $("#solve-plot-empty").classList.toggle("hidden", has);
+  $("#solve-plot-empty").textContent = d.variables.length > 3 ? "The region plot is available for problems with 2 or 3 variables."
+                                                              : "Too many cuts to draw.";
+  $("#replay-controls").classList.toggle("hidden", !(has && cp));
+  $("#replay-title").textContent = cp ? "Feasible region · replay the rounds" : "Feasible region · root cuts and node LP solutions";
+  if (!has) { Plotly.purge("solve-plot"); return; }
+  if (cp) {
+    const r = $("#replay-round");
+    r.max = g.regions.length - 1;
+    r.value = replayRound = g.regions.length - 1;
+  }
+  drawReplay();
+}
+$("#replay-round").addEventListener("input", (e) => { replayRound = +e.target.value; drawReplay(); });
+$("#replay-prev").addEventListener("click", () => { replayRound = Math.max(0, replayRound - 1); $("#replay-round").value = replayRound; drawReplay(); });
+$("#replay-next").addEventListener("click", () => {
+  replayRound = Math.min(+$("#replay-round").max, replayRound + 1); $("#replay-round").value = replayRound; drawReplay();
+});
+
+function drawReplay() {
+  const d = solveData, g = d.geometry, cp = d.algorithm === "cutting_planes";
+  if (!g) return;
+  const r = cp ? replayRound : 1;
+  const region = g.regions[Math.min(r, g.regions.length - 1)];
+  const visibleCuts = g.cuts.filter(c => c.round <= r);
+  const point = cp ? d.rounds[r].x : d.lp.solution;
+  if (cp) $("#replay-label").textContent = `after round ${r} of ${g.regions.length - 1} · ${visibleCuts.length} cuts · bound ${fmt(d.rounds[r].bound)}`;
+  const nodePoints = cp ? [] : d.nodes.filter(n => n.x).map(n => ({ x: n.x, label: `node ${n.id}`, status: n.status }));
+  (g.dim === 2 ? drawReplay2d : drawReplay3d)(d, g, region, visibleCuts, r, point, nodePoints);
+}
+
+function drawReplay2d(d, g, region, cuts, r, point, nodePoints) {
+  const close = (p) => p.length ? [...p, p[0]] : p, xs = (p) => p.map(q => q[0]), ys = (p) => p.map(q => q[1]);
+  const t = [];
+  const lp = close(g.lp_region);
+  t.push({ x: xs(lp), y: ys(lp), fill: "toself", mode: "lines", name: "LP relaxation", line: { color: css("--lp"), width: 1 }, fillcolor: rgba(css("--lp"), 0.06) });
+  if (region.length >= 3) {
+    const reg = close(region);
+    t.push({ x: xs(reg), y: ys(reg), fill: "toself", mode: "lines", name: "Region with cuts", line: { color: css("--accent"), width: 2 }, fillcolor: rgba(css("--accent"), 0.16) });
+  }
+  if (g.integer_hull.length >= 3) {
+    const h = close(g.integer_hull);
+    t.push({ x: xs(h), y: ys(h), fill: "toself", mode: "lines", name: "Integer hull", line: { color: css("--hull"), width: 1.5, dash: "dot" }, fillcolor: rgba(css("--hull"), 0.10) });
+  }
+  const seen = new Set();
+  cuts.forEach(c => {
+    const latest = c.round === r;
+    t.push({ x: xs(c.plane), y: ys(c.plane), mode: "lines", name: CUT_LABELS[c.method] || c.method, legendgroup: c.method,
+             showlegend: !seen.has(c.method), line: { color: cutColor(c.method), width: latest ? 2.5 : 1.2 }, opacity: latest ? 1 : 0.5,
+             hovertemplate: `round ${c.round}<extra></extra>` });
+    seen.add(c.method);
+  });
+  if (g.integer_infeasible.length) t.push({ x: xs(g.integer_infeasible), y: ys(g.integer_infeasible), mode: "markers", name: "Integer (infeasible)", marker: { color: css("--muted"), size: 5, opacity: 0.4 }, hoverinfo: "skip" });
+  if (g.integer_feasible.length) t.push({ x: xs(g.integer_feasible), y: ys(g.integer_feasible), mode: "markers", name: "Integer (feasible)", marker: { color: css("--hull"), size: 9, line: { color: css("--panel"), width: 1 } } });
+  nodePoints.forEach((p, i) => t.push({ x: [p.x[0]], y: [p.x[1]], mode: "markers+text", text: [p.label.replace("node ", "")], textposition: "top center",
+      name: "Node LP solutions", legendgroup: "nodes", showlegend: i === 0, marker: { color: css(NODE_COLORS[p.status] || "--muted"), size: 8, symbol: "circle-open", line: { width: 2 } },
+      textfont: { size: 10, color: css("--muted") }, hovertemplate: `${p.label}: (%{x}, %{y})<extra></extra>` }));
+  t.push({ x: [point[0]], y: [point[1]], mode: "markers", name: "LP optimum", marker: { color: css("--bad"), size: 15, symbol: "star" } });
+  if (d.mip.solution) t.push({ x: [d.mip.solution[0]], y: [d.mip.solution[1]], mode: "markers", name: "MIP optimum", marker: { color: css("--hull"), size: 14, symbol: "diamond-open", line: { width: 2.5 } } });
+  const axis = (i) => ({ title: d.variables[i], range: [g.lo[i], g.hi[i]], dtick: (g.hi[i] - g.lo[i]) <= 14 ? 1 : null, gridcolor: css("--line"), zerolinecolor: css("--muted") });
+  Plotly.react("solve-plot", t, { ...plotLayoutBase(), margin: { l: 50, r: 10, t: 10, b: 50 }, xaxis: axis(0), yaxis: { ...axis(1), scaleanchor: "x", scaleratio: 1 } },
+               { responsive: true, displaylogo: false });
+}
+
+function drawReplay3d(d, g, region, cuts, r, point, nodePoints) {
+  const col = (p, j) => p.map(q => q[j]), t = [];
+  t.push({ type: "mesh3d", x: col(g.lp_region, 0), y: col(g.lp_region, 1), z: col(g.lp_region, 2), alphahull: 0, opacity: 0.08, color: css("--lp"), name: "LP relaxation", showlegend: true, hoverinfo: "skip" });
+  if (region.length >= 4) t.push({ type: "mesh3d", x: col(region, 0), y: col(region, 1), z: col(region, 2), alphahull: 0, opacity: 0.28, color: css("--accent"), name: "Region with cuts", showlegend: true, hoverinfo: "skip" });
+  if (g.integer_hull.length >= 4) t.push({ type: "mesh3d", x: col(g.integer_hull, 0), y: col(g.integer_hull, 1), z: col(g.integer_hull, 2), alphahull: 0, opacity: 0.18, color: css("--hull"), name: "Integer hull", showlegend: true, hoverinfo: "skip", visible: "legendonly" });
+  const seen = new Set();
+  cuts.filter(c => c.round === r && c.plane.length >= 3).forEach(c => {
+    const P = c.plane, I = [], J = [], K = [];
+    for (let k = 1; k < P.length - 1; k++) { I.push(0); J.push(k); K.push(k + 1); }
+    t.push({ type: "mesh3d", x: col(P, 0), y: col(P, 1), z: col(P, 2), i: I, j: J, k: K, opacity: 0.35, color: cutColor(c.method),
+             name: `${CUT_LABELS[c.method] || c.method} (round ${r})`, legendgroup: c.method, showlegend: !seen.has(c.method), hoverinfo: "name" });
+    seen.add(c.method);
+  });
+  if (g.integer_feasible.length) t.push({ type: "scatter3d", mode: "markers", x: col(g.integer_feasible, 0), y: col(g.integer_feasible, 1), z: col(g.integer_feasible, 2), marker: { color: css("--hull"), size: 4 }, name: "Integer (feasible)" });
+  if (nodePoints.length) t.push({ type: "scatter3d", mode: "markers+text", x: nodePoints.map(p => p.x[0]), y: nodePoints.map(p => p.x[1]), z: nodePoints.map(p => p.x[2]),
+      text: nodePoints.map(p => p.label.replace("node ", "")), marker: { color: nodePoints.map(p => css(NODE_COLORS[p.status] || "--muted")), size: 4 }, name: "Node LP solutions", textfont: { size: 10 } });
+  t.push({ type: "scatter3d", mode: "markers", x: [point[0]], y: [point[1]], z: [point[2]], marker: { color: css("--bad"), size: 7, symbol: "diamond" }, name: "LP optimum" });
+  if (d.mip.solution) t.push({ type: "scatter3d", mode: "markers", x: [d.mip.solution[0]], y: [d.mip.solution[1]], z: [d.mip.solution[2]], marker: { color: css("--hull"), size: 7, symbol: "diamond-open" }, name: "MIP optimum" });
+  const ax = (i) => ({ title: d.variables[i], range: [g.lo[i], g.hi[i]], gridcolor: css("--line"), backgroundcolor: "rgba(0,0,0,0)" });
+  Plotly.react("solve-plot", t, { ...plotLayoutBase(), margin: { l: 0, r: 0, t: 0, b: 0 }, scene: { xaxis: ax(0), yaxis: ax(1), zaxis: ax(2), aspectmode: "cube" } },
+               { responsive: true, displaylogo: false });
+}
+
+// ---- Branch-and-bound tree -----------------------------------------------------
+// Tidy layout: leaves left to right, parents centred over their children.
+function treeLayout(nodes) {
+  const kids = {}, pos = {};
+  nodes.forEach(n => { if (n.parent) (kids[n.parent] ||= []).push(n); });
+  let leaf = 0;
+  (function place(n) {
+    const ch = kids[n.id] || [];
+    if (!ch.length) { pos[n.id] = [leaf++, -n.depth]; return; }
+    ch.forEach(place);
+    pos[n.id] = [ch.reduce((s, c) => s + pos[c.id][0], 0) / ch.length, -n.depth];
+  })(nodes[0]);
+  return pos;
+}
+
+// Draw the tree of result `d` into element `el`, as it stood after `step` nodes
+// were solved (step = Infinity: the final tree). A node exists once its parent
+// has been solved; it shows its final colour once it has been solved itself
+// (nodes discarded without an LP, e.g. empty bounds, show theirs on creation).
+function drawTree(el, d, step = Infinity, { labels = true, onClick = null } = {}) {
+  const nodes = d.nodes, byId = Object.fromEntries(nodes.map(n => [n.id, n]));
+  const pos = treeLayout(nodes);
+  const solved = (n) => n.order > 0 && n.order <= step;
+  const exists = (n) => !n.parent || solved(byId[n.parent]);
+  const shown = nodes.filter(exists);
+  // A node shows its final status once solved. A node never solved (order 0)
+  // shows it on creation if it was discarded without an LP (empty bounds), and
+  // in the final tree whatever it ended as; otherwise it is "open".
+  const state = (n) => {
+    if (solved(n)) return n.status;
+    if (n.order === 0 && (n.status === "infeasible" || !Number.isFinite(step))) return n.status;
+    return "open";
+  };
+
+  const ex = [], ey = [], lx = [], ly = [], lt = [];
+  shown.forEach(n => {
+    if (!n.parent) return;
+    const [x0, y0] = pos[n.parent], [x1, y1] = pos[n.id];
+    ex.push(x0, x1, null); ey.push(y0, y1, null);
+    // Label nearer the child so the labels of sibling edges do not collide.
+    lx.push(x0 + 0.62 * (x1 - x0)); ly.push(y0 + 0.62 * (y1 - y0)); lt.push(n.branch);
+  });
+  const best = d.objective, traces = [
+    { x: ex, y: ey, mode: "lines", line: { color: css("--line"), width: 1.5 }, hoverinfo: "skip", showlegend: false },
+    { x: lx, y: ly, mode: "text", text: lt, textfont: { size: 10, color: css("--muted") }, hoverinfo: "skip", showlegend: false },
+  ];
+  // Bound (and cuts) under each solved node.
+  if (labels) {
+    const sn = shown.filter(n => state(n) !== "open" && n.bound !== null);
+    // Just below the node; edge labels sit nearer the children, so the two do not meet.
+    traces.push({ x: sn.map(n => pos[n.id][0]), y: sn.map(n => pos[n.id][1] - 0.26), mode: "text", hoverinfo: "skip", showlegend: false,
+                  text: sn.map(n => fmt(n.bound, 3) + (n.cuts ? ` ✂${n.cuts}` : "")), textfont: { size: 9, color: css("--muted") } });
+  }
+  Object.keys(NODE_TEXT).forEach(st => {
+    const ns = shown.filter(n => state(n) === st);
+    if (!ns.length) return;
+    const hollow = st === "open";
+    traces.push({
+      x: ns.map(n => pos[n.id][0]), y: ns.map(n => pos[n.id][1]), mode: "markers+text", name: NODE_TEXT[st],
+      text: ns.map(n => String(n.id)), textposition: "middle center",
+      textfont: { size: 9, color: hollow ? css("--muted") : "#fff" }, customdata: ns.map(n => n.id),
+      marker: { size: ns.map(n => n.order === step ? 26 : 20), color: hollow ? css("--panel") : css(NODE_COLORS[st]),
+                symbol: ns.map(n => st === "integer" && best !== null && Math.abs(n.bound - best) < 1e-6 && !Number.isFinite(step) ? "star" : "circle"),
+                line: { color: ns.map(n => n.order === step ? css("--text") : hollow ? css("--muted") : css("--panel")), width: ns.map(n => n.order === step ? 3 : hollow ? 1.5 : 1) } },
+      hovertext: ns.map(n => `node ${n.id}${n.order ? ` (solved #${n.order})` : ""}<br>${n.branch || "root"}<br>bound: ${n.bound === null || hollow ? "—" : fmt(n.bound)}` +
+                             `<br>${hollow ? "created, not yet solved" : NODE_TEXT[n.status]}${n.cuts && !hollow ? `<br>${n.cuts} cuts` : ""}`),
+      hoverinfo: "text",
+    });
+  });
+  // Keep the axes fixed across steps so the tree does not jump around.
+  const xs = Object.values(pos).map(p => p[0]), ys = Object.values(pos).map(p => p[1]);
+  Plotly.react(el, traces, { ...plotLayoutBase(), margin: { l: 10, r: 10, t: 10, b: 30 }, hovermode: "closest",
+    xaxis: { visible: false, range: [Math.min(...xs) - 0.6, Math.max(...xs) + 0.6] },
+    yaxis: { visible: false, range: [Math.min(...ys) - 0.7, 0.5] },
+    legend: { orientation: "h", x: 0, y: -0.02, yanchor: "top" } }, { responsive: true, displaylogo: false });
+  if (onClick) {
+    el.removeAllListeners?.("plotly_click");
+    el.on("plotly_click", (ev) => { const id = ev.points[0].customdata; if (id) onClick(byId[id]); });
+  }
+}
+
+let treeStep = Infinity, treeTimer = null;
+function renderTree(d) {
+  const solvedCount = d.nodes.filter(n => n.order > 0).length;
+  $("#tree-step").max = solvedCount;
+  $("#tree-step").value = solvedCount;
+  treeStep = solvedCount;
+  stopTreePlay();
+  drawTreeStep();
+}
+function drawTreeStep() {
+  const d = solveData, K = +$("#tree-step").max;
+  const step = treeStep >= K ? Infinity : treeStep;
+  drawTree(document.getElementById("tree-plot"), d, step, { onClick: (n) => {
+    $("#node-detail").innerHTML = `<b>Node ${n.id}</b> — ${esc(n.branch || "root")}, depth ${n.depth}, ${NODE_TEXT[n.status]}. ` +
+      `Bound ${n.bound === null ? "—" : fmt(n.bound)}${n.x ? `; LP solution (${n.x.map(v => fmt(v)).join(", ")})` : ""}` +
+      `${n.cuts ? `; ${n.cuts} cuts added here` : ""}.`;
+  } });
+  // Label: which node was just solved, and the incumbent and best bound at that moment.
+  const h = treeStep > 0 ? d.history[Math.min(treeStep, d.history.length) - 1] : null;
+  const cur = d.nodes.find(n => n.order === treeStep);
+  $("#tree-step-label").textContent = treeStep === 0 ? `step 0 of ${K}: only the root exists` :
+    `step ${treeStep} of ${K}: solved node ${cur ? cur.id : "—"}${cur ? ` (${NODE_TEXT[cur.status]})` : ""} · ` +
+    `incumbent ${h && h.incumbent !== null ? fmt(h.incumbent) : "none"} · best bound ${h && h.best_bound !== null ? fmt(h.best_bound) : "—"}`;
+  // Mark the step on the convergence chart.
+  const conv = document.getElementById("conv-plot");
+  if (conv.data && d.algorithm !== "cutting_planes")
+    Plotly.relayout(conv, { shapes: treeStep > 0 && treeStep < K ? [{ type: "line", x0: treeStep, x1: treeStep, yref: "paper", y0: 0, y1: 1,
+                                                                       line: { color: css("--muted"), dash: "dot", width: 1 } }] : [] });
+}
+function setTreeStep(k) { treeStep = Math.max(0, Math.min(+$("#tree-step").max, k)); $("#tree-step").value = treeStep; drawTreeStep(); }
+function stopTreePlay() { clearInterval(treeTimer); treeTimer = null; $("#tree-play").textContent = "▶ Play"; }
+$("#tree-step").addEventListener("input", (e) => { stopTreePlay(); setTreeStep(+e.target.value); });
+$("#tree-prev").addEventListener("click", () => { stopTreePlay(); setTreeStep(treeStep - 1); });
+$("#tree-next").addEventListener("click", () => { stopTreePlay(); setTreeStep(treeStep + 1); });
+$("#tree-play").addEventListener("click", () => {
+  if (treeTimer) { stopTreePlay(); return; }
+  if (treeStep >= +$("#tree-step").max) setTreeStep(0);
+  $("#tree-play").textContent = "❚❚ Pause";
+  treeTimer = setInterval(() => {
+    if (treeStep >= +$("#tree-step").max) { stopTreePlay(); return; }
+    setTreeStep(treeStep + 1);
+  }, 900);
+});
+
+// ---- Compare branch and bound with branch and cut --------------------------------
+$("#compare-run").addEventListener("click", compareRun);
+async function compareRun() {
+  let methods = [...document.querySelectorAll("input[name=scut]:checked")].map(c => c.value);
+  const defaulted = !methods.length;
+  if (defaulted) methods = ["gmi"];
+  const base = {
+    text: $("#problem").value, format, methods, split_rule: $("#split-rule").value,
+    node_selection: $("#node-sel").value, branching: $("#branch-rule").value, max_nodes: +$("#max-nodes").value,
+    root_cut_rounds: Math.max(1, +$("#root-rounds").value), node_cut_rounds: +$("#node-rounds").value,
+    normalization: $("#solve-norm").value, max_rounds: +$("#max-rounds").value,
+  };
+  const btn = $("#compare-run");
+  btn.disabled = true; btn.textContent = "Running both…";
+  try {
+    const run = async (algorithm) => {
+      const res = await fetch("/api/iterate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...base, algorithm }) });
+      const data = await res.json();
+      if (!res.ok || data.error) throw new Error(data.error || res.statusText);
+      return data;
+    };
+    const [bb, bc] = await Promise.all([run("branch_and_bound"), run("branch_and_cut")]);
+    $("#compare-panel").classList.remove("hidden");
+    const fams = methods.map(m => CUT_LABELS[m] || m).join(" + ");
+    $("#compare-note").textContent = `Same problem and branching rules. Branch and cut adds ${fams} cuts: ${base.root_cut_rounds} round(s) at the root` +
+      `${base.node_cut_rounds ? ` and ${base.node_cut_rounds} at every node` : ""}${defaulted ? " (no family was selected, so GMI is used)" : ""}.`;
+    // One row per measure, the better value in bold.
+    const solved = (d) => d.nodes.filter(n => n.order > 0).length;
+    const depth = (d) => Math.max(...d.nodes.map(n => n.depth));
+    const rootb = (d) => d.root_bound_after_cuts ?? d.root_bound ?? d.lp.bound;
+    const minimize = /^\s*min/i.test($("#problem").value);
+    const rows = [
+      ["Nodes solved", solved(bb), solved(bc), "low"],
+      ["Nodes in the tree", bb.nodes.length, bc.nodes.length, "low"],
+      ["Tree depth", depth(bb), depth(bc), "low"],
+      ["Root bound", rootb(bb), rootb(bc), minimize ? "high" : "low"],
+      ["Best integer solution", bb.objective, bc.objective, null],
+      ["Cuts added", bb.total_cuts, bc.total_cuts, null],
+      ["Time (s)", bb.seconds, bc.seconds, "low"],
+    ];
+    const cell = (v, w, better) => {
+      const s = v === null ? "none" : typeof v === "number" && !Number.isInteger(v) ? fmt(v, 3) : String(v);
+      const win = better && v !== null && w !== null && (better === "low" ? v < w : v > w);
+      return `<td class="num">${win ? `<b>${esc(s)}</b>` : esc(s)}</td>`;
+    };
+    $("#cmp-table").innerHTML = `<tr><th></th><th class="num">Branch and bound</th><th class="num">Branch and cut</th></tr>` +
+      rows.map(([k, a, b, better]) => `<tr><td>${k}</td>${cell(a, b, better)}${cell(b, a, better)}</tr>`).join("");
+    drawTree(document.getElementById("cmp-tree-bb"), bb, Infinity, { labels: true });
+    drawTree(document.getElementById("cmp-tree-bc"), bc, Infinity, { labels: true });
+    $("#compare-panel").scrollIntoView({ behavior: "smooth", block: "start" });
+  } catch (err) {
+    showSolveError(err.message);
+  } finally {
+    btn.disabled = false; btn.textContent = "Compare B&B and B&C";
+  }
+}
+
+// ---- Rounds / nodes table --------------------------------------------------------
+function renderSteps(d) {
+  const t = $("#steps-table");
+  if (d.algorithm === "cutting_planes") {
+    $("#steps-title").textContent = "Rounds";
+    t.innerHTML = `<tr><th>Round</th><th class="num">LP bound</th><th class="num">Gap closed</th><th>Cuts added</th><th>LP solution</th></tr>` +
+      d.rounds.map(r => {
+        const counts = {};
+        r.cuts.forEach(c => counts[c.label] = (counts[c.label] || 0) + 1);
+        const added = r.round === 0 ? "—" : Object.entries(counts).map(([k, v]) => `${v} × ${esc(k)}`).join("<br>") || "none";
+        const detail = r.cuts.length || r.errors.length ? `<details><summary class="note">show</summary>` +
+          r.cuts.map(c => `<div class="cutexpr">${esc(c.text)} <span class="note">(${esc(c.var)})</span></div>`).join("") +
+          r.errors.map(e => `<div class="note">skipped: ${esc(e)}</div>`).join("") + `</details>` : "";
+        return `<tr><td>${r.round}</td><td class="num">${fmt(r.bound)}</td><td class="num">${r.gap_closed === null ? "—" : fmt(r.gap_closed, 2) + "%"}</td>` +
+               `<td>${added}${detail}</td><td class="cutexpr">(${r.x.map(v => fmt(v, 3)).join(", ")})</td></tr>`;
+      }).join("");
+  } else {
+    $("#steps-title").textContent = "Nodes (in the order they were solved)";
+    const solved = d.nodes.filter(n => n.order > 0).sort((a, b) => a.order - b.order);
+    const unsolved = d.nodes.filter(n => n.order === 0);
+    t.innerHTML = `<tr><th>#</th><th>Node</th><th>Branch</th><th class="num">Depth</th><th class="num">Bound</th><th>Result</th><th class="num">Cuts</th><th>LP solution</th></tr>` +
+      [...solved, ...unsolved].map(n => `<tr><td>${n.order || "—"}</td><td>${n.id}${n.parent ? ` <span class="note">← ${n.parent}</span>` : ""}</td>` +
+        `<td>${esc(n.branch || "root")}</td><td class="num">${n.depth}</td><td class="num">${n.bound === null ? "—" : fmt(n.bound)}</td>` +
+        `<td><span class="swatch" style="background:${css(NODE_COLORS[n.status])}"></span> ${NODE_TEXT[n.status]}</td>` +
+        `<td class="num">${n.cuts || ""}</td><td class="cutexpr">${n.x ? `(${n.x.map(v => fmt(v, 3)).join(", ")})` : ""}</td></tr>`).join("");
+    if (d.global_cuts.length)
+      t.innerHTML += `<tr><td colspan="8"><details><summary class="note">${d.global_cuts.length} root cuts (valid at every node)</summary>` +
+        d.global_cuts.map(c => `<div class="cutexpr">${esc(c.text)} <span class="note">(${esc(c.label)}, ${esc(c.var)})</span></div>`).join("") + `</details></td></tr>`;
+  }
+}
+const CUT_LABELS = { gfc: "GFC", sic: "SIC", gmi: "GMI", vpc: "VPC", vpc_mono: "VPC + monoidal" };
+updateSolveOptions();
+
+// Re-render (plots read their colours from CSS) when the colour scheme changes.
+let lastData = null;
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
+  if (lastData) render(lastData);
+  if (solveData) renderSolve(solveData);
+});
+
+loadExample(0);
+</script>
+</body>
+</html>

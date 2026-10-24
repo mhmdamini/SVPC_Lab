@@ -1,0 +1,63 @@
+{
+  "name": "disjunctive-cuts-lab",
+  "productName": "Disjunctive Cuts Lab",
+  "version": "0.1.0",
+  "description": "Generate and visualize disjunctive cuts (SIC, GMI, VPC) for mixed-integer programs.",
+  "author": "Mohammad Amini",
+  "license": "MIT",
+  "private": true,
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "start:dev": "CUTS_DEV_JULIA=1 electron .",
+    "dist:mac": "electron-builder --mac --publish never",
+    "dist:win": "electron-builder --win --publish never"
+  },
+  "build": {
+    "appId": "io.github.mhmdamini.disjunctive-cuts-lab",
+    "productName": "Disjunctive Cuts Lab",
+    "files": [
+      "main.js",
+      "loading.html",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "../build/server",
+        "to": "server"
+      },
+      {
+        "from": "node_modules/plotly.js-dist-min/plotly.min.js",
+        "to": "plotly.min.js"
+      }
+    ],
+    "directories": {
+      "output": "dist"
+    },
+    "artifactName": "Disjunctive-Cuts-Lab-${version}-${os}-${arch}.${ext}",
+    "mac": {
+      "target": [
+        "dmg"
+      ],
+      "category": "public.app-category.education",
+      "identity": null
+    },
+    "win": {
+      "target": [
+        "nsis"
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true
+    }
+  },
+  "dependencies": {
+    "plotly.js-dist-min": "2.35.2"
+  },
+  "devDependencies": {
+    "electron": "^44.9.2",
+    "electron-builder": "^26.15.3"
+  }
+}

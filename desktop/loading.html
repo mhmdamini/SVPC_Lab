@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'">
+<title>Disjunctive Cuts Lab</title>
+<style>
+  :root { --bg: #f6f7f9; --ink: #1d2330; --muted: #5d6677; --accent: #2f6fde; --line: #e1e4ea; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #12151b; --ink: #e6e9ef; --muted: #9aa3b2; --accent: #5b8ff0; --line: #2a303b; }
+  }
+  html, body { height: 100%; margin: 0; }
+  body { display: grid; place-items: center; background: var(--bg); color: var(--ink);
+         font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+  .box { text-align: center; }
+  h1 { font-size: 22px; margin: 0 0 6px; letter-spacing: -0.01em; }
+  p { margin: 0; color: var(--muted); }
+  .spinner { width: 28px; height: 28px; margin: 22px auto 0; border-radius: 50%;
+             border: 3px solid var(--line); border-top-color: var(--accent); animation: spin 0.9s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+  <div class="box">
+    <h1>Disjunctive Cuts Lab</h1>
+    <p>Starting the solver…</p>
+    <div class="spinner" aria-hidden="true"></div>
+  </div>
+</body>
+</html>
